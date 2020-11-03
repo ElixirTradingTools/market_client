@@ -2,51 +2,43 @@ defmodule MarketClient.Socket do
   alias __MODULE__, as: Socket
   alias MarketClient.Resource
   alias MarketClient.Broker
+  alias WebSockex, as: WS
   use WebSockex
 
   def start(resource = %Resource{socket_pid: nil}) do
     {:ok, pid} = start_link(resource)
     resource = Map.put(resource, :socket_pid, pid)
-
-    resource
-    |> Broker.subscribe()
-    |> push(resource)
-
+    resource |> Broker.subscribe() |> ws_send(resource)
     resource
   end
 
   def stop(resource = %Resource{socket_pid: pid}) when is_pid(pid) do
-    resource
-    |> Broker.unsubscribe()
-    |> push(resource)
+    resource |> Broker.unsubscribe() |> ws_send(resource)
+    WS.cast(resource.socket_pid, :close)
+    Map.put(resource, :socket_pid, nil)
   end
 
-  def start_link(resource = %Resource{broker: broker}) do
-    broker
-    |> Broker.url()
-    |> WebSockex.start_link(Socket, resource)
+  def start_link(res = %Resource{}) do
+    res |> Broker.url() |> WS.start_link(Socket, res)
   end
 
-  def push(json_msg, %Resource{socket_pid: pid})
+  def ws_send(json_msg, %Resource{socket_pid: pid})
       when is_binary(json_msg) and is_pid(pid) do
-    WebSockex.send_frame(pid, {:text, json_msg})
+    WS.send_frame(pid, {:text, json_msg})
   end
 
-  def push(json_msgs, resource = %Resource{socket_pid: pid})
+  def ws_send(json_msgs, resource = %Resource{socket_pid: pid})
       when is_list(json_msgs) and is_pid(pid) do
-    Enum.each(json_msgs, fn msg -> push(msg, resource) end)
+    json_msgs
+    |> Enum.each(&ws_send(&1, resource))
   end
-
-  # def parse_payload([%{"s" => t, "v" => v, "vw" => w, "o" => o, "c" => c, "h" => h, "l" => l}]),
-  #   do: %{t: trunc(t * 0.001), h: h, l: l, o: o, c: c, v: v, vw: w}
-
-  # def parse_payload(_),
-  #   do: nil
 
   def handle_cast({:send, {type, msg} = frame}, state) do
     IO.puts("Sending #{type} frame with payload: #{msg}")
     {:reply, frame, state}
   end
+
+  def handle_cast(:close, _resource), do: {:close, nil}
 
   def terminate(_close_reason, state) do
     case state do
