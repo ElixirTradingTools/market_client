@@ -1,36 +1,28 @@
 defmodule MarketClient.Socket do
-  alias __MODULE__, as: Socket
   alias MarketClient.Resource
   alias MarketClient.Broker
   alias WebSockex, as: WS
   use WebSockex
 
-  def start(resource = %Resource{socket_pid: nil}) do
-    {:ok, pid} = start_link(resource)
-    resource = Map.put(resource, :socket_pid, pid)
-    resource |> Broker.subscribe() |> ws_send(resource)
-    resource
+  def start(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
+    res |> Broker.subscribe() |> ws_send(pid)
   end
 
-  def stop(resource = %Resource{socket_pid: pid}) when is_pid(pid) do
-    resource |> Broker.unsubscribe() |> ws_send(resource)
-    WS.cast(resource.socket_pid, :close)
-    Map.put(resource, :socket_pid, nil)
+  def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
+    res |> Broker.unsubscribe() |> ws_send(pid)
+    WS.cast(pid, :close)
   end
 
   def start_link(res = %Resource{}) do
-    res |> Broker.url() |> WS.start_link(Socket, res)
+    res |> Broker.url() |> WS.start_link(__MODULE__, res)
   end
 
-  def ws_send(json_msg, %Resource{socket_pid: pid})
-      when is_binary(json_msg) and is_pid(pid) do
+  def ws_send(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
     WS.send_frame(pid, {:text, json_msg})
   end
 
-  def ws_send(json_msgs, resource = %Resource{socket_pid: pid})
-      when is_list(json_msgs) and is_pid(pid) do
-    json_msgs
-    |> Enum.each(&ws_send(&1, resource))
+  def ws_send(json_msgs, pid) when is_list(json_msgs) and (is_pid(pid) or is_tuple(pid)) do
+    Enum.each(json_msgs, &ws_send(&1, pid))
   end
 
   def handle_cast({:send, {type, msg} = frame}, state) do
@@ -38,7 +30,8 @@ defmodule MarketClient.Socket do
     {:reply, frame, state}
   end
 
-  def handle_cast(:close, _resource), do: {:close, nil}
+  def handle_cast(:close, _res),
+    do: {:close, nil}
 
   def terminate(_close_reason, state) do
     case state do

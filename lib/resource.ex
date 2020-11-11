@@ -8,11 +8,14 @@ defmodule MarketClient.Resource do
     field :api_key, String.t(), enforce: true
     field :handler, Tuple.t(), enforce: true
     field :asset_id, Tuple.t(), enforce: true
-    field :socket_pid, Process.t() | Tuple.t(), default: nil
     field :broker, :polygon | :coinbase | :binance, enforce: true
   end
 
-  def new(broker, asset_id, key, handler, via \\ nil)
+  def new(broker, asset_id, handler) when is_tuple(asset_id) and broker in @brokers do
+    new(broker, asset_id, "", handler)
+  end
+
+  def new(broker, asset_id, key, handler)
       when is_binary(key) and is_tuple(asset_id) and broker in @brokers do
     case handler do
       {:func, ref} when is_function(ref) ->
@@ -20,8 +23,7 @@ defmodule MarketClient.Resource do
           broker: broker,
           asset_id: asset_id,
           api_key: key,
-          handler: handler,
-          socket_pid: via
+          handler: handler
         }
 
       {:file, ref} when is_binary(ref) ->
@@ -31,8 +33,7 @@ defmodule MarketClient.Resource do
               broker: broker,
               asset_id: asset_id,
               api_key: key,
-              handler: {:file, fh_ref},
-              socket_pid: via
+              handler: {:file, fh_ref}
             }
         end
     end
