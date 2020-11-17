@@ -24,7 +24,7 @@ defmodule MarketClient.MixProject do
       {:jason, "~> 1.0"},
       {:typed_struct, "~> 0.2.1"},
       {:websockex, "~> 0.4.2"},
-      {:mint, "~> 1.0"},
+      {:finch, "~> 0.3.0"},
       {:castore, "~> 0.1.0"}
     ]
   end

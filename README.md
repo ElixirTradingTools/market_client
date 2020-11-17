@@ -36,8 +36,20 @@ res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:forex, {:gbp, :aud}}, {:fun
 MarketClient.start(pid, res)
 MarketClient.stop(pid, res)
 
-res = MarketClient.new({:oanda, %{key: "XXXX", practice: true}}, {:forex, {:gbp, :aud}}, {:func, &IO.inspect/1})
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+# OANDA
+alias MarketClient.{DataProvider, Resource}
+
+MarketClient.new({:oanda, %{
+        practice: true,
+        account_id: "XXXX",
+        key: "XXXX"
+    }},
+    {:forex, {:aud, :nzd}},
+    %{
+        data_type: :candlesticks,
+        resolution: {1, :minute}
+    },
+    {:func, &IO.inspect/1}
+)
+|> Company.Oanda.start_link()
 ```

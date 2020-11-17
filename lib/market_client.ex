@@ -5,21 +5,22 @@ defmodule MarketClient do
 
   def get_broker_module(%Resource{broker: {broker_name, _}}) do
     case broker_name do
-      :coinbase -> MarketClient.Provider.Coinbase
-      :polygon -> MarketClient.Provider.Polygon
-      :binance -> MarketClient.Provider.Binance
-      :oanda -> MarketClient.Provider.Oanda
+      :coinbase -> MarketClient.Company.Coinbase
+      :polygon -> MarketClient.Company.Polygon
+      :binance -> MarketClient.Company.Binance
+      :oanda -> MarketClient.Company.Oanda
     end
   end
 
-  def new(broker = {name, _}, asset_id, handler)
-      when is_tuple(asset_id) and is_tuple(handler) and name in @brokers do
+  def new(broker = {name, _}, asset_id, opts, handler)
+      when is_tuple(asset_id) and is_map(opts) and is_tuple(handler) and name in @brokers do
     case handler do
       {:func, ref} when is_function(ref) ->
         %Resource{
           broker: broker,
           asset_id: asset_id,
-          handler: handler
+          handler: handler,
+          opts: opts
         }
 
       {:file, ref} when is_binary(ref) ->
@@ -28,7 +29,8 @@ defmodule MarketClient do
             %Resource{
               broker: broker,
               asset_id: asset_id,
-              handler: {:file, fh_ref}
+              handler: {:file, fh_ref},
+              opts: opts
             }
         end
     end
@@ -40,10 +42,22 @@ defmodule MarketClient do
     |> apply(:start, [pid, res])
   end
 
+  def start(pid, res = %Resource{}, other) do
+    res
+    |> get_broker_module()
+    |> apply(:start, [pid, res, other])
+  end
+
   def start_link(res = %Resource{}) do
     res
     |> get_broker_module()
     |> apply(:start_link, [res])
+  end
+
+  def stop(pid, res = %Resource{}) do
+    res
+    |> get_broker_module()
+    |> apply(:stop, [pid, res])
   end
 
   def url(res = %Resource{}) do

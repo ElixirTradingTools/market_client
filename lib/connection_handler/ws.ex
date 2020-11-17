@@ -1,7 +1,7 @@
-defmodule MarketClient.Net.WebSocket do
+defmodule MarketClient.ConnectionHandler.Ws do
   alias MarketClient.Resource
   alias MarketClient
-  alias WebSockex, as: WS
+
   use WebSockex
 
   def start(pid, msg) when is_pid(pid) or is_tuple(pid) do
@@ -12,15 +12,16 @@ defmodule MarketClient.Net.WebSocket do
     res
     |> MarketClient.msg_unsubscribe()
     |> ws_send(pid)
-    WS.cast(pid, :close)
+
+    WebSockex.cast(pid, :close)
   end
 
   def start_link(url, res = %Resource{}) do
-    WS.start_link(url, __MODULE__, res)
+    WebSockex.start_link(url, __MODULE__, res)
   end
 
   def ws_send(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
-    WS.send_frame(pid, {:text, json_msg})
+    WebSockex.send_frame(pid, {:text, json_msg})
   end
 
   def ws_send(json_msgs, pid) when is_list(json_msgs) and (is_pid(pid) or is_tuple(pid)) do
@@ -32,8 +33,9 @@ defmodule MarketClient.Net.WebSocket do
     {:reply, frame, state}
   end
 
-  def handle_cast(:close, _res),
-    do: {:close, nil}
+  def handle_cast(:close, _res) do
+    {:close, nil}
+  end
 
   def terminate(_close_reason, state) do
     case state do
