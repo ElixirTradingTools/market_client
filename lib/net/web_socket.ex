@@ -1,20 +1,22 @@
-defmodule MarketClient.Socket do
+defmodule MarketClient.Net.WebSocket do
   alias MarketClient.Resource
-  alias MarketClient.Broker
+  alias MarketClient
   alias WebSockex, as: WS
   use WebSockex
 
-  def start(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
-    res |> Broker.subscribe() |> ws_send(pid)
+  def start(pid, msg) when is_pid(pid) or is_tuple(pid) do
+    ws_send(msg, pid)
   end
 
   def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
-    res |> Broker.unsubscribe() |> ws_send(pid)
+    res
+    |> MarketClient.msg_unsubscribe()
+    |> ws_send(pid)
     WS.cast(pid, :close)
   end
 
-  def start_link(res = %Resource{}) do
-    res |> Broker.url() |> WS.start_link(__MODULE__, res)
+  def start_link(url, res = %Resource{}) do
+    WS.start_link(url, __MODULE__, res)
   end
 
   def ws_send(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do

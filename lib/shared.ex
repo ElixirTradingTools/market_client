@@ -9,6 +9,6 @@ defmodule MarketClient.Shared do
   end
 
   def upcase_atom(atom) when is_atom(atom) do
-    S.upcase(to_string(atom))
+    to_string(atom) |> S.upcase()
   end
 end
