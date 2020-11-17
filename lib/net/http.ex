@@ -1,18 +1,47 @@
 defmodule MarketClient.Net.HTTP do
-  alias __MODULE__
   use GenServer
 
   require Logger
 
-  defstruct [:conn, requests: %{}]
+  defstruct [:conn, :polling, :target, requests: %{}]
 
   def start_link({:https, host, 443}) do
     host = String.replace(host, ~r/^https?:\/\//, "")
     GenServer.start_link(__MODULE__, {:https, host, 443})
   end
 
-  def request(pid, path, headers, body \\ nil) do
-    GenServer.call(pid, {:request, "GET", path, headers, body})
+  def request(pid, {method, path, headers, body}) do
+    GenServer.call(pid, {:request, method, path, headers, body})
+  end
+
+  def poll(pid, target = {_, _, _, _}, {freq_ms, callback}) do
+    Process.send(pid, {:poll_start, target, freq_ms, callback}, [:noconnect])
+  end
+
+  def halt(pid) do
+    Process.send(pid, :halt, [:noconnect])
+  end
+
+  def die(pid) do
+    GenServer.cast(pid, :die)
+  end
+
+  def new_request({method, path, headers, body}, _from, state) do
+    # In both the successful case and the error case, we make sure to update the connection
+    # struct in the state since the connection is an immutable data structure.
+    case Mint.HTTP.request(state.conn, method, path, headers, body) do
+      {:ok, conn, request_ref} ->
+        # We store the caller this request belongs to and an empty map as the response.
+        # The map will be filled with status code, headers, and so on.
+        state = put_in(state.conn, conn)
+        state = put_in(state.requests[request_ref], %{response: %{}})
+        {:ok, state}
+
+      {:error, conn, reason} ->
+        Logger.error(fn -> "Error: #{reason}" end)
+        state = put_in(state.conn, conn)
+        {:error, reason, state}
+    end
   end
 
   ## Callbacks
@@ -21,30 +50,64 @@ defmodule MarketClient.Net.HTTP do
   def init({scheme, host, port}) do
     case Mint.HTTP.connect(scheme, host, port) do
       {:ok, conn} ->
-        state = %HTTP{conn: conn}
+        state = %MarketClient.Net.HTTP{conn: conn}
         {:ok, state}
 
       {:error, reason} ->
+        Logger.error(fn -> "Error: " <> inspect(reason) end)
         {:stop, reason}
     end
   end
 
   @impl true
+  def handle_cast(:die, _) do
+    {:stop, :normal, nil}
+  end
+
+  @impl true
   def handle_call({:request, method, path, headers, body}, from, state) do
-    # In both the successful case and the error case, we make sure to update the connection
-    # struct in the state since the connection is an immutable data structure.
-    case Mint.HTTP.request(state.conn, method, path, headers, body) do
-      {:ok, conn, request_ref} ->
-        state = put_in(state.conn, conn)
-        # We store the caller this request belongs to and an empty map as the response.
-        # The map will be filled with status code, headers, and so on.
-        state = put_in(state.requests[request_ref], %{from: from, response: %{}})
+    case new_request({method, path, headers, body}, from, state) do
+      {:ok, state} ->
         {:noreply, state}
 
-      {:error, conn, reason} ->
-        state = put_in(state.conn, conn)
-        {:reply, {:error, reason}, state}
+      {:error, reason, state} ->
+        Logger.error(fn -> "Error: " <> inspect(reason) end)
+        {:noreply, state}
     end
+  end
+
+  @impl true
+  def handle_info({:poll_start, target, freq_ms, callback}, state) do
+    Process.send_after(self(), :poll, freq_ms)
+    state = put_in(state.polling, {freq_ms, callback})
+    state = put_in(state.target, target)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:poll, state) do
+    case state do
+      %{polling: {freq_ms, _}, target: target} ->
+        case new_request(target, nil, state) do
+          {:ok, state} ->
+            Process.send_after(self(), :poll, freq_ms)
+            {:noreply, state}
+
+          {:error, reason, state} ->
+            Logger.error(fn -> "Error: " <> inspect(reason) end)
+            {:noreply, state}
+        end
+
+      msg ->
+        Logger.error(fn -> "Unknown message: " <> inspect(msg) end)
+        {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_info(:halt, state) do
+    state = put_in(state.polling, nil)
+    {:noreply, state}
   end
 
   @impl true
@@ -52,7 +115,7 @@ defmodule MarketClient.Net.HTTP do
     # We should handle the error case here as well, but we're omitting it for brevity.
     case Mint.HTTP.stream(state.conn, message) do
       :unknown ->
-        _ = Logger.error(fn -> "Received unknown message: " <> inspect(message) end)
+        Logger.error(fn -> "Received unknown message: " <> inspect(message) end)
         {:noreply, state}
 
       {:ok, conn, responses} ->
@@ -77,11 +140,14 @@ defmodule MarketClient.Net.HTTP do
   # When the request is done, we use GenServer.reply/2 to reply to the caller that was
   # blocked waiting on this request.
   defp process_response({:done, request_ref}, state) do
-    {%{response: response, from: from}, state} = pop_in(state.requests[request_ref])
-    GenServer.reply(from, {:ok, response})
-    state
-  end
+    case pop_in(state.requests[request_ref]) do
+      {%{response: response}, state = %{polling: {_, callback}}} ->
+        callback.(response)
+        state
 
-  # A request can also error, but we're not handling the erroneous responses for
-  # brevity.
+      {_, state} ->
+        IO.puts("something went wrong")
+        state
+    end
+  end
 end

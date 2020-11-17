@@ -8,9 +8,10 @@ defmodule MarketClient.Provider.Oanda do
     "https://api-fx#{mode}.oanda.com"
   end
 
-  def path(%Resource{asset_id: {:forex, {c1, c2}}}) when is_atom(c1) and is_atom(c2) do
-    str = format_asset_id(c1, c2)
-    "/v3/instruments/#{str}/orderBook"
+  def path(:pricing, %Resource{asset_id: {:forex, {c1, c2}}, broker: {:oanda, %{account_id: aid}}})
+      when is_atom(c1) and is_atom(c2) and aid != nil do
+    pair = format_asset_id(c1, c2)
+    "/v3/accounts/#{aid}/pricing?instruments=#{pair}"
   end
 
   def format_asset_id(c1, c2) when is_atom(c1) and is_atom(c2) do
@@ -19,7 +20,7 @@ defmodule MarketClient.Provider.Oanda do
 
   def headers(%Resource{broker: {:oanda, %{key: k}}}) when is_binary(k) do
     [
-      {"authorization", "bearer: #{k}"},
+      {"authorization", "bearer #{k}"},
       {"keep-alive", "true"}
     ]
   end
@@ -28,7 +29,14 @@ defmodule MarketClient.Provider.Oanda do
     HTTP.start_link({:https, url(res), 443})
   end
 
-  def start(pid, res = %Resource{}) do
-    HTTP.request(pid, path(res), headers(res))
+  def start(pid, res = %Resource{handler: {:func, func}}) do
+    HTTP.poll(pid, {"GET", path(:pricing, res), headers(res), ""}, {34, func})
+  end
+
+  def stop(pid, _) do
+    if Process.alive?(pid) do
+      HTTP.halt(pid)
+      HTTP.die(pid)
+    end
   end
 end
