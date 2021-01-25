@@ -19,7 +19,8 @@ defmodule MarketClient do
         %Resource{
           broker: broker,
           asset_id: asset_id,
-          handler: handler
+          handler: handler,
+          data_type: :quote
         }
 
       {:file, ref} when is_binary(ref) ->
@@ -28,7 +29,8 @@ defmodule MarketClient do
             %Resource{
               broker: broker,
               asset_id: asset_id,
-              handler: {:file, fh_ref}
+              handler: {:file, fh_ref},
+              data_type: :quote
             }
         end
     end

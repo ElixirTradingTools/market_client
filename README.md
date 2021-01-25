@@ -26,7 +26,7 @@ res = MarketClient.new({:binance, nil}, {:crypto, {:eth, :usdt}}, {:func, &IO.in
 MarketClient.start(pid, res)
 MarketClient.stop(pid, res)
 
-res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:stock, {"MSFT", nil}}, {:func, &IO.inspect/1})
+res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:stock, "MSFT"}, {:func, &IO.inspect/1})
 {:ok, pid} = MarketClient.start_link(res)
 MarketClient.start(pid, res)
 MarketClient.stop(pid, res)
