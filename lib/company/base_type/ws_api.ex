@@ -1,4 +1,13 @@
 defmodule MarketClient.Company.BaseType.WsApi do
+  @allowed_callers [
+    MarketClient.Company.BinanceGlobal,
+    MarketClient.Company.BinanceUs,
+    MarketClient.Company.Coinbase,
+    MarketClient.Company.Polygon,
+    MarketClient.Company.FtxUs,
+    MarketClient.Company.Oanda
+  ]
+
   @optional_callbacks start_link: 1,
                       start: 2,
                       stop: 2,
@@ -22,6 +31,10 @@ defmodule MarketClient.Company.BaseType.WsApi do
   @callback msg_unsubscribe(struct()) :: binary() | List.t()
 
   defmacro __using__([]) do
+    unless __CALLER__.module in @allowed_callers do
+      raise "WsApi is only for internal use"
+    end
+
     quote do
       alias MarketClient.{
         Resource,

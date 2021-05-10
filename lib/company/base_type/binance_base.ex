@@ -1,5 +1,14 @@
 defmodule MarketClient.Company.BaseType.Binance do
+  @allowed_callers [
+    MarketClient.Company.BinanceGlobal,
+    MarketClient.Company.BinanceUs
+  ]
+
   defmacro __using__([tld]) when tld in [:us, :com] do
+    unless __CALLER__.module in @allowed_callers do
+      raise "WsApi is only for internal use"
+    end
+
     quote do
       alias MarketClient.{
         Company.BaseType.WsApi,
