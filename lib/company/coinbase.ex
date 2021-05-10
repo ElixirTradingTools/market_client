@@ -18,21 +18,21 @@ defmodule MarketClient.Company.Coinbase do
   end
 
   @impl WsApi
-  def msg_subscribe(%Resource{asset_id: asset_id}) do
+  def msg_subscribe(res = %Resource{}) do
     %{
       "type" => "subscribe",
       "channels" => ["ticker"],
-      "product_ids" => [format_asset_id(asset_id)]
+      "product_ids" => [format_asset_id(res)]
     }
     |> Jason.encode!()
   end
 
   @impl WsApi
-  def msg_unsubscribe(%Resource{asset_id: asset_id}) do
+  def msg_unsubscribe(res = %Resource{}) do
     %{
       "type" => "unsubscribe",
       "channels" => ["level2"],
-      "product_ids" => [format_asset_id(asset_id)]
+      "product_ids" => [format_asset_id(res)]
     }
     |> Jason.encode!()
   end

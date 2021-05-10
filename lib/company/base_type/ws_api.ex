@@ -58,7 +58,7 @@ defmodule MarketClient.Company.BaseType.WsApi do
       def start(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
         res
         |> msg_subscribe()
-        |> Ws.ws_send(pid)
+        |> Ws.send_json(pid)
       end
 
       defoverridable start: 2
@@ -67,7 +67,7 @@ defmodule MarketClient.Company.BaseType.WsApi do
       def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
         res
         |> msg_unsubscribe()
-        |> Ws.ws_send(pid)
+        |> Ws.send_json(pid)
       end
 
       defoverridable stop: 2

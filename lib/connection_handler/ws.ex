@@ -5,13 +5,13 @@ defmodule MarketClient.ConnectionHandler.Ws do
   use WebSockex
 
   def start(pid, msg) when is_pid(pid) or is_tuple(pid) do
-    ws_send(msg, pid)
+    send_json(msg, pid)
   end
 
   def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
     res
     |> MarketClient.msg_unsubscribe()
-    |> ws_send(pid)
+    |> send_json(pid)
 
     WebSockex.cast(pid, :close)
   end
@@ -20,12 +20,12 @@ defmodule MarketClient.ConnectionHandler.Ws do
     WebSockex.start_link(url, __MODULE__, res)
   end
 
-  def ws_send(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
+  def send_json(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
     WebSockex.send_frame(pid, {:text, json_msg})
   end
 
-  def ws_send(json_msgs, pid) when is_list(json_msgs) and (is_pid(pid) or is_tuple(pid)) do
-    Enum.each(json_msgs, &ws_send(&1, pid))
+  def send_json(json_msgs, pid) when is_list(json_msgs) and (is_pid(pid) or is_tuple(pid)) do
+    Enum.each(json_msgs, &send_json(&1, pid))
   end
 
   def handle_cast({:send, {type, msg} = frame}, state) do

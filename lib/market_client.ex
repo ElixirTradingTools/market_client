@@ -1,13 +1,22 @@
 defmodule MarketClient do
   alias MarketClient.Resource
 
-  @brokers [:coinbase, :polygon, :binance, :oanda]
+  @brokers [
+    :binance_global,
+    :binance_us,
+    :coinbase,
+    :polygon,
+    :ftx_us,
+    :oanda
+  ]
 
   def get_broker_module(%Resource{broker: {broker_name, _}}) do
     case broker_name do
+      :binance_global -> MarketClient.Company.BinanceGlobal
+      :binance_us -> MarketClient.Company.BinanceUs
       :coinbase -> MarketClient.Company.Coinbase
       :polygon -> MarketClient.Company.Polygon
-      :binance -> MarketClient.Company.Binance
+      :ftx_us -> MarketClient.Company.FtxUs
       :oanda -> MarketClient.Company.Oanda
     end
   end
