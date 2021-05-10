@@ -9,6 +9,8 @@ defmodule MarketClient.Company.BaseType.Binance do
       raise "WsApi is only for internal use"
     end
 
+    broker_name = if(tld == :us, do: :binance_us, else: :binance_global)
+
     quote do
       alias MarketClient.{
         Company.BaseType.WsApi,
@@ -18,23 +20,26 @@ defmodule MarketClient.Company.BaseType.Binance do
       use WsApi
 
       @impl WsApi
-      def url(res = %MarketClient.Resource{}) do
+      def url(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
         "wss://stream.binance.#{unquote(tld) |> to_string()}:9443/ws/#{get_asset_pair(res)}"
       end
 
       @impl WsApi
-      def get_asset_pair(%MarketClient.Resource{asset_id: {:crypto, {c1, c2}}})
+      def get_asset_pair(%MarketClient.Resource{
+            broker: {unquote(broker_name), _},
+            asset_id: {:crypto, {c1, c2}}
+          })
           when is_atom(c1) and is_atom(c2) do
         "#{Shared.upcase_atom(c1)}#{Shared.upcase_atom(c2)}"
       end
 
       @impl WsApi
-      def format_asset_id(res = %MarketClient.Resource{}) do
+      def format_asset_id(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
         "#{get_asset_pair(res)}@bookTicker"
       end
 
       @impl WsApi
-      def msg_subscribe(res = %MarketClient.Resource{}) do
+      def msg_subscribe(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
         %{
           "id" => 1,
           "method" => "SUBSCRIBE",
@@ -44,7 +49,7 @@ defmodule MarketClient.Company.BaseType.Binance do
       end
 
       @impl WsApi
-      def msg_unsubscribe(res = %MarketClient.Resource{}) do
+      def msg_unsubscribe(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
         %{
           "id" => 1,
           "method" => "UNSUBSCRIBE",

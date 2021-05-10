@@ -7,12 +7,12 @@ defmodule MarketClient.Company.FtxUs do
   use WsApi
 
   @impl WsApi
-  def url(_) do
+  def url(%Resource{broker: {:ftx_us, _}}) do
     "wss://ftx.us/ws/"
   end
 
   @impl WsApi
-  def msg_subscribe(res = %Resource{}) do
+  def msg_subscribe(res = %Resource{broker: {:ftx_us, _}}) do
     %{
       "op" => "subscribe",
       "channel" => "trades",
@@ -22,7 +22,7 @@ defmodule MarketClient.Company.FtxUs do
   end
 
   @impl WsApi
-  def msg_unsubscribe(res = %Resource{}) do
+  def msg_unsubscribe(res = %Resource{broker: {:ftx_us, _}}) do
     %{
       "op" => "unsubscribe",
       "channel" => "trades",
