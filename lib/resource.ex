@@ -4,7 +4,7 @@ defmodule MarketClient.Resource do
   typedstruct do
     field :broker, Tuple.t(), enforce: true
     field :asset_id, Tuple.t(), enforce: true
-    field :handler, Tuple.t()
-    field :opts, Map.t()
+    field :listener, Function.t(), enforce: true
+    field :options, Map.t() | nil
   end
 end

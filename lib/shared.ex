@@ -1,6 +1,4 @@
 defmodule MarketClient.Shared do
-  alias String, as: S
-
   def as_list(thing) do
     case thing do
       s when is_binary(s) -> [s]
@@ -9,7 +7,11 @@ defmodule MarketClient.Shared do
   end
 
   def upcase_atom(atom) when is_atom(atom) do
-    to_string(atom) |> S.upcase()
+    to_string(atom) |> String.upcase()
+  end
+
+  def downcase_atom(atom) when is_atom(atom) do
+    to_string(atom) |> String.downcase()
   end
 
   def extract_bids_asks(%{

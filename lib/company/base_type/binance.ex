@@ -1,4 +1,9 @@
 defmodule MarketClient.Company.BaseType.Binance do
+  alias MarketClient.{
+    Company.BaseType.WsApi,
+    Shared
+  }
+
   @allowed_callers [
     MarketClient.Company.BinanceGlobal,
     MarketClient.Company.BinanceUs
@@ -30,12 +35,12 @@ defmodule MarketClient.Company.BaseType.Binance do
             asset_id: {:crypto, {c1, c2}}
           })
           when is_atom(c1) and is_atom(c2) do
-        "#{Shared.upcase_atom(c1)}#{Shared.upcase_atom(c2)}"
+        "#{Shared.downcase_atom(c1)}#{Shared.downcase_atom(c2)}"
       end
 
       @impl WsApi
       def format_asset_id(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        "#{get_asset_pair(res)}@bookTicker"
+        "#{get_asset_pair(res)}@kline_1m"
       end
 
       @impl WsApi

@@ -46,9 +46,7 @@ defmodule MarketClient.Company.BaseType.WsApi do
       @spec start_link(struct()) :: {:ok, pid()} | {:error, term()}
 
       def start_link(res = %Resource{}) do
-        res
-        |> url()
-        |> Ws.start_link(res)
+        Ws.start_link(res)
       end
 
       defoverridable start_link: 1

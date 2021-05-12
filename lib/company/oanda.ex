@@ -8,7 +8,7 @@ defmodule MarketClient.Company.Oanda do
   def url(%Resource{
         broker: {:oanda, %{practice: is_paper_trade, account_id: aid}},
         asset_id: {:forex, {c1, c2}},
-        opts: %{
+        options: %{
           data_type: data_type,
           resolution: {res_count, res_unit},
           stream: is_stream
@@ -60,8 +60,8 @@ defmodule MarketClient.Company.Oanda do
   def start_link(
         res = %Resource{
           broker: {:oanda, %{key: key}},
-          handler: {:func, callback},
-          opts: %{stream: is_stream}
+          listener: callback,
+          options: %{stream: is_stream}
         }
       )
       when is_function(callback) and is_binary(key) do

@@ -1,26 +1,18 @@
 defmodule MarketClient.ConnectionHandler.Ws do
   alias MarketClient.Resource
-  alias MarketClient
+
+  require Logger
 
   use WebSockex
 
-  def start(pid, msg) when is_pid(pid) or is_tuple(pid) do
-    send_json(msg, pid)
-  end
-
-  def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
+  def start_link(res = %Resource{}) do
     res
-    |> MarketClient.msg_unsubscribe()
-    |> send_json(pid)
-
-    WebSockex.cast(pid, :close)
-  end
-
-  def start_link(url, res = %Resource{}) do
-    WebSockex.start_link(url, __MODULE__, res)
+    |> MarketClient.url()
+    |> WebSockex.start_link(__MODULE__, res)
   end
 
   def send_json(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
+    IO.puts("send_json: #{json_msg}")
     WebSockex.send_frame(pid, {:text, json_msg})
   end
 
@@ -28,46 +20,53 @@ defmodule MarketClient.ConnectionHandler.Ws do
     Enum.each(json_msgs, &send_json(&1, pid))
   end
 
-  def handle_cast({:send, {type, msg} = frame}, state) do
+  def handle_cast({:send, frame = {type, msg}}, res) do
     IO.puts("Sending #{type} frame with payload: #{msg}")
-    {:reply, frame, state}
+    {:noreply, frame, res}
   end
 
-  def handle_cast(:close, _res) do
-    {:close, nil}
+  def handle_cast({:close, frame}, res) do
+    [
+      "Server received close message:",
+      "frame: #{inspect(frame)}",
+      "resource: #{inspect(res)}"
+    ]
+    |> Enum.join("\n")
+    |> Logger.info()
+
+    {:close, res}
   end
 
-  def terminate(_close_reason, state) do
-    case state do
-      %{handler: {:file, handle}} ->
-        File.close(handle)
-        {:close, state}
+  def handle_cast({any, frame}, res) do
+    [
+      "Server received unknown message:",
+      "type: #{inspect(any)}",
+      "message: #{inspect(frame)}",
+      "resource: #{inspect(res)}"
+    ]
+    |> Enum.join("\n")
+    |> Logger.info()
 
-      _ ->
-        {:close, state}
-    end
+    {:noreply, frame, res}
   end
 
-  def handle_frame({:text, msg}, state = %{handler: {:file, handle}}) do
-    case Jason.decode!(msg) do
-      %{"message" => "unsubscribed" <> _} ->
-        {:close, state}
+  def handle_frame({:text, msg}, state = %Resource{}) do
+    Logger.info("Received frame:\n#{msg}")
 
-      msg ->
-        IO.inspect(msg)
-        IO.write(handle, "#{msg}\n")
+    case Jason.decode(msg) do
+      {:error, _} ->
+        state.listener.({:message, msg})
+        {:ok, state}
+
+      {:ok, parsed_json} ->
+        state.listener.({:data, parsed_json})
         {:ok, state}
     end
   end
 
-  def handle_frame({:text, msg}, state = %{handler: {:func, cb}}) when is_function(cb) do
-    case Jason.decode!(msg) do
-      nil ->
-        {:ok, state}
-
-      result ->
-        cb.(result)
-        {:ok, state}
-    end
+  def terminate(close_reason, state) do
+    IO.puts("Connection closed: #{inspect(close_reason)}")
+    state.listener.({:close, close_reason})
+    {:close, state}
   end
 end
