@@ -1,4 +1,4 @@
-defmodule MarketClient.ConnectionHandler.HttpOld do
+defmodule MarketClient.Transport.HttpOld do
 end
 
 #   require Logger
@@ -48,7 +48,7 @@ end
 #   def init({scheme, host, port}) do
 #     case Mint.HTTP.connect(scheme, host, port) do
 #       {:ok, conn} ->
-#         state = %MarketClient.ConnectionHandler.HTTP{conn: conn}
+#         state = %MarketClient.Transport.HTTP{conn: conn}
 #         {:ok, state}
 
 #       {:error, reason} ->

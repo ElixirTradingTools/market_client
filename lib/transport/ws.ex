@@ -1,15 +1,32 @@
-defmodule MarketClient.ConnectionHandler.Ws do
-  alias MarketClient.Resource
-
-  require Logger
+defmodule MarketClient.Transport.Ws do
+  @moduledoc """
+  This is the base layer for all WebSocket connections in MarketClient.
+  `MarketClient.Behaviors.WsApi` implements the behavior and
+  overridable functions used in every vendor module which uses
+  WebSocket communication.
+  """
 
   use WebSockex
+  alias MarketClient.Resource
+  require Logger
+
+  @spec start_link(Resource.t(), true) :: {:ok, pid()} | {:error, term()}
+
+  def start_link(res = %Resource{}, true) do
+    res
+    |> MarketClient.ws_url()
+    |> WebSockex.start_link(__MODULE__, res, debug: [:trace])
+  end
+
+  @spec start_link(Resource.t()) :: {:ok, pid()} | {:error, term()}
 
   def start_link(res = %Resource{}) do
     res
-    |> MarketClient.url()
+    |> MarketClient.ws_url()
     |> WebSockex.start_link(__MODULE__, res)
   end
+
+  @spec send_json(binary() | List.t(), pid()) :: :ok | {:error, term()}
 
   def send_json(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
     IO.puts("send_json: #{json_msg}")
@@ -17,7 +34,10 @@ defmodule MarketClient.ConnectionHandler.Ws do
   end
 
   def send_json(json_msgs, pid) when is_list(json_msgs) and (is_pid(pid) or is_tuple(pid)) do
-    Enum.each(json_msgs, &send_json(&1, pid))
+    Enum.reduce(json_msgs, :ok, fn
+      msg, :ok -> send_json(msg, pid)
+      _, other -> other
+    end)
   end
 
   def handle_cast({:send, frame = {type, msg}}, res) do
@@ -51,8 +71,6 @@ defmodule MarketClient.ConnectionHandler.Ws do
   end
 
   def handle_frame({:text, msg}, state = %Resource{}) do
-    Logger.info("Received frame:\n#{msg}")
-
     case Jason.decode(msg) do
       {:error, _} ->
         state.listener.({:message, msg})
@@ -62,6 +80,11 @@ defmodule MarketClient.ConnectionHandler.Ws do
         state.listener.({:data, parsed_json})
         {:ok, state}
     end
+  end
+
+  def handle_disconnect(status, res) do
+    Logger.warn("DISCONNECTED: #{inspect(status)}")
+    {:ok, res}
   end
 
   def terminate(close_reason, state) do

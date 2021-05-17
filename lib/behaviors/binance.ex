@@ -1,31 +1,23 @@
-defmodule MarketClient.Company.BaseType.Binance do
-  alias MarketClient.{
-    Company.BaseType.WsApi,
-    Shared
-  }
-
-  @allowed_callers [
-    MarketClient.Company.BinanceGlobal,
-    MarketClient.Company.BinanceUs
-  ]
-
+defmodule MarketClient.Behaviors.Binance do
   defmacro __using__([tld]) when tld in [:us, :com] do
-    unless __CALLER__.module in @allowed_callers do
-      raise "WsApi is only for internal use"
+    alias MarketClient.Shared
+
+    unless Shared.is_vendor_module(__CALLER__.module) do
+      raise "MarketClient.Behaviors.Binance is not a public module"
     end
 
     broker_name = if(tld == :us, do: :binance_us, else: :binance_global)
 
     quote do
       alias MarketClient.{
-        Company.BaseType.WsApi,
+        Behaviors.WsApi,
         Shared
       }
 
       use WsApi
 
       @impl WsApi
-      def url(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
+      def ws_url(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
         "wss://stream.binance.#{unquote(tld) |> to_string()}:9443/ws/#{get_asset_pair(res)}"
       end
 
@@ -35,7 +27,7 @@ defmodule MarketClient.Company.BaseType.Binance do
             asset_id: {:crypto, {c1, c2}}
           })
           when is_atom(c1) and is_atom(c2) do
-        "#{Shared.downcase_atom(c1)}#{Shared.downcase_atom(c2)}"
+        "#{Shared.a2s_downcased(c1)}#{Shared.a2s_downcased(c2)}"
       end
 
       @impl WsApi

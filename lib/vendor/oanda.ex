@@ -1,11 +1,11 @@
-defmodule MarketClient.Company.Oanda do
+defmodule MarketClient.Vendor.Oanda do
   alias MarketClient.{
-    ConnectionHandler.Http,
+    Transport.Http,
     Resource,
     Shared
   }
 
-  def url(%Resource{
+  def http_url(%Resource{
         broker: {:oanda, %{practice: is_paper_trade, account_id: aid}},
         asset_id: {:forex, {c1, c2}},
         options: %{
@@ -50,7 +50,7 @@ defmodule MarketClient.Company.Oanda do
   end
 
   def format_asset_id(c1, c2) when is_atom(c1) and is_atom(c2) do
-    "#{Shared.upcase_atom(c1)}_#{Shared.upcase_atom(c2)}"
+    "#{Shared.a2s_upcased(c1)}_#{Shared.a2s_upcased(c2)}"
   end
 
   def headers(%Resource{broker: {:oanda, %{key: k}}}) when is_binary(k) do
@@ -66,9 +66,9 @@ defmodule MarketClient.Company.Oanda do
       )
       when is_function(callback) and is_binary(key) do
     if is_stream do
-      Http.stream(url(res), [{"authorization", "bearer #{key}"}], callback)
+      Http.stream(http_method(res), http_url(res), [authorization: key], callback)
     else
-      case Http.request(url(res), key) do
+      case Http.request(http_method(res), http_url(res), authorization: key) do
         {:ok, %Finch.Response{body: body}} ->
           body |> Jason.decode!() |> callback.()
 
@@ -77,4 +77,6 @@ defmodule MarketClient.Company.Oanda do
       end
     end
   end
+
+  def http_method(_), do: :get
 end

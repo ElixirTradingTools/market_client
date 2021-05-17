@@ -16,22 +16,22 @@ the following to your `mix.ex` dependencies.
 
 ## Example Usage
 ```
-res = MarketClient.new({:coinbase, nil}, {:crypto, {:eth, :usd}}, {:func, &IO.inspect/1})
+res = MarketClient.new({:coinbase, nil}, {:crypto, {:eth, :usd}}, &IO.inspect/1)
 {:ok, pid} = MarketClient.start_link(res)
 MarketClient.start(pid, res)
 MarketClient.stop(pid, res)
 
-res = MarketClient.new({:binance, nil}, {:crypto, {:eth, :usdt}}, {:func, &IO.inspect/1})
+res = MarketClient.new({:binance, nil}, {:crypto, {:eth, :usdt}}, &IO.inspect/1)
 {:ok, pid} = MarketClient.start_link(res)
 MarketClient.start(pid, res)
 MarketClient.stop(pid, res)
 
-res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:stock, {"MSFT", nil}}, {:func, &IO.inspect/1})
+res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:stock, {"MSFT", nil}}, &IO.inspect/1)
 {:ok, pid} = MarketClient.start_link(res)
 MarketClient.start(pid, res)
 MarketClient.stop(pid, res)
 
-res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:forex, {:gbp, :aud}}, {:func, &IO.inspect/1})
+res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:forex, {:gbp, :aud}}, &IO.inspect/1)
 {:ok, pid} = MarketClient.start_link(res)
 MarketClient.start(pid, res)
 MarketClient.stop(pid, res)
@@ -49,7 +49,18 @@ MarketClient.new({:oanda, %{
         data_type: :candlesticks,
         resolution: {1, :minute}
     },
-    {:func, &IO.inspect/1}
+    &IO.inspect/1
 )
-|> Company.Oanda.start_link()
+|> Vendor.Oanda.start_link()
+```
+
+## Example HTTP With FTX_US
+
+```
+# https://ftx.us/api/markets/ETH/USD/candles?resolution=60&start_time=1621200276&end_time=1621201476
+# https://ftx.us/api/markets/eth/usd/candles?resolution=60&limit=50&start_time=0&end_time=1621200227
+
+res = MarketClient.new({:ftx_us, nil}, {:crypto, {:eth, :usd}}, &IO.inspect/1)
+MarketClient.Transport.Http.start_link()
+MarketClient.http_fetch(res)
 ```

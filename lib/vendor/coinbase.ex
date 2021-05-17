@@ -1,6 +1,6 @@
-defmodule MarketClient.Company.Coinbase do
+defmodule MarketClient.Vendor.Coinbase do
   alias MarketClient.{
-    Company.BaseType.WsApi,
+    Behaviors.WsApi,
     Resource,
     Shared
   }
@@ -8,13 +8,13 @@ defmodule MarketClient.Company.Coinbase do
   use WsApi
 
   @impl WsApi
-  def url(%Resource{broker: {:coinbase, _}}) do
+  def ws_url(%Resource{broker: {:coinbase, _}}) do
     "wss://ws-feed.pro.coinbase.com"
   end
 
   @impl WsApi
   def format_asset_id(%Resource{broker: {:coinbase, _}, asset_id: {:crypto, {c1, c2}}}) do
-    "#{Shared.upcase_atom(c1)}-#{Shared.upcase_atom(c2)}"
+    "#{Shared.a2s_upcased(c1)}-#{Shared.a2s_upcased(c2)}"
   end
 
   @impl WsApi

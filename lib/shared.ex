@@ -1,40 +1,30 @@
 defmodule MarketClient.Shared do
+  def is_vendor_module(module) do
+    [Module.split(MarketClient.Vendor), Module.split(module)]
+    |> Enum.reduce(&List.starts_with?/2)
+  end
+
   def as_list(thing) do
     case thing do
       s when is_binary(s) -> [s]
       l when is_list(l) -> l
+      u -> [u]
     end
   end
 
-  def upcase_atom(atom) when is_atom(atom) do
+  def a2s_upcased(atom) when is_atom(atom) do
     to_string(atom) |> String.upcase()
   end
 
-  def downcase_atom(atom) when is_atom(atom) do
+  def a2s_downcased(atom) when is_atom(atom) do
     to_string(atom) |> String.downcase()
   end
 
-  def extract_bids_asks(%{
-        "prices" => [
-          %{
-            "asks" => [%{"liquidity" => ask_liq, "price" => best_ask}],
-            "bids" => [%{"liquidity" => bid_liq, "price" => best_bid}]
-          }
-        ]
-      }) do
-    %{bid: {best_ask, ask_liq}, ask: {best_bid, bid_liq}}
-  end
-
-  def oanda_handler(msg) do
-    case msg do
-      %{data: data} ->
-        data
-        |> Jason.decode!()
-        |> extract_bids_asks()
-        |> IO.inspect()
-
-      msg ->
-        IO.inspect(msg)
+  @spec unix_now(:ms | :sec, none() | binary()) :: integer()
+  def unix_now(unit, timezone \\ "Etc/UTC") do
+    case unit do
+      :ms -> DateTime.now!(timezone) |> DateTime.to_unix(:millisecond)
+      :sec -> DateTime.now!(timezone) |> DateTime.to_unix(:second)
     end
   end
 end

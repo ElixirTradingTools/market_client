@@ -1,6 +1,6 @@
-defmodule MarketClient.Company.Polygon do
+defmodule MarketClient.Vendor.Polygon do
   alias MarketClient.{
-    Company.BaseType.WsApi,
+    Behaviors.WsApi,
     Resource,
     Shared
   }
@@ -8,7 +8,7 @@ defmodule MarketClient.Company.Polygon do
   use WsApi
 
   @impl WsApi
-  def url(%Resource{broker: {:polygon, _}, asset_id: {class, _}}) do
+  def ws_url(%Resource{broker: {:polygon, _}, asset_id: {class, _}}) do
     case class do
       :forex -> "wss://socket.polygon.io/forex"
       :stock -> "wss://socket.polygon.io/stocks"
@@ -28,7 +28,7 @@ defmodule MarketClient.Company.Polygon do
         asset_id: {:forex, {c1, c2}, data_type: data_type}
       }) do
     case data_type do
-      :quote -> "C.#{Shared.upcase_atom(c1)}/#{Shared.upcase_atom(c2)}"
+      :quote -> "C.#{Shared.a2s_upcased(c1)}/#{Shared.a2s_upcased(c2)}"
     end
   end
 
