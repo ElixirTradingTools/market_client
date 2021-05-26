@@ -33,7 +33,7 @@ defmodule MarketClient.Vendor.Polygon do
   end
 
   @impl WsApi
-  def msg_subscribe(%Resource{broker: {:polygon, %{key: key}}, asset_id: asset_id}) do
+  def msg_subscribe(res = %Resource{broker: {:polygon, %{key: key}}}) do
     [
       %{
         "action" => "auth",
@@ -41,7 +41,7 @@ defmodule MarketClient.Vendor.Polygon do
       },
       %{
         "action" => "subscribe",
-        "params" => format_asset_id(asset_id)
+        "params" => format_asset_id(res)
       }
     ]
     |> Enum.map(&Jason.encode!/1)

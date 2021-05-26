@@ -20,7 +20,7 @@ defmodule MarketClient.Shared do
     to_string(atom) |> String.downcase()
   end
 
-  @spec unix_now(:ms | :sec, none() | binary()) :: integer()
+  @spec unix_now(:ms | :sec, none() | binary) :: integer
   def unix_now(unit, timezone \\ "Etc/UTC") do
     case unit do
       :ms -> DateTime.now!(timezone) |> DateTime.to_unix(:millisecond)

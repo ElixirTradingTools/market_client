@@ -68,7 +68,7 @@ defmodule MarketClient.Vendor.Oanda do
     if is_stream do
       Http.stream(http_method(res), http_url(res), [authorization: key], callback)
     else
-      case Http.request(http_method(res), http_url(res), authorization: key) do
+      case Http.request(res) do
         {:ok, %Finch.Response{body: body}} ->
           body |> Jason.decode!() |> callback.()
 

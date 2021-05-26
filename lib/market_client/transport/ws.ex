@@ -10,23 +10,17 @@ defmodule MarketClient.Transport.Ws do
   alias MarketClient.Resource
   require Logger
 
-  @spec start_link(Resource.t(), true) :: {:ok, pid()} | {:error, term()}
-
-  def start_link(res = %Resource{}, true) do
-    res
-    |> MarketClient.ws_url()
-    |> WebSockex.start_link(__MODULE__, res, debug: [:trace])
-  end
-
-  @spec start_link(Resource.t()) :: {:ok, pid()} | {:error, term()}
+  @spec start_link(Resource.t()) :: {:ok, pid} | {:error, term}
 
   def start_link(res = %Resource{}) do
-    res
-    |> MarketClient.ws_url()
-    |> WebSockex.start_link(__MODULE__, res)
+    mod = MarketClient.get_broker_module(res)
+    url = mod.ws_url(res)
+    via = mod.ws_via_tuple(res)
+
+    WebSockex.start_link(url, mod, res, name: via)
   end
 
-  @spec send_json(binary() | List.t(), pid()) :: :ok | {:error, term()}
+  @spec send_json(binary | List.t(), pid) :: :ok | {:error, term}
 
   def send_json(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
     IO.puts("send_json: #{json_msg}")

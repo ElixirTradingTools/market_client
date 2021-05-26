@@ -4,26 +4,32 @@ defmodule MarketClient.Transport.Http do
   """
 
   alias __MODULE__, as: Http
+  alias MarketClient.Resource
 
   @type method :: :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
 
-  @spec start_link() :: Supervisor.on_start()
+  @spec start(module) :: DynamicSupervisor.on_start_child()
 
-  def start_link do
-    Finch.start_link(name: Http)
+  def start(module) do
+    DynamicSupervisor.start_child(MarketClient, {Finch, name: module})
   end
 
-  @spec request(method(), binary(), none() | Keyword.t()) ::
+  @spec request(Resource.t()) ::
           {:ok, Finch.Response.t()}
           | {:error, Mint.Types.error()}
 
-  def request(method, url, headers \\ []) do
+  def request(res = %Resource{}) do
+    url = res |> MarketClient.http_url()
+    method = res |> MarketClient.http_method()
+    headers = res |> MarketClient.http_headers() |> headers_from_keywords()
+
     method
-    |> Finch.build(url, headers_from_keywords(headers))
+    |> Finch.build(url, headers)
     |> Finch.request(Http)
+    |> res.listener.()
   end
 
-  @spec stream(method(), binary(), Keyword.t(), function()) ::
+  @spec stream(method, binary, Keyword.t(), function) ::
           {:ok, Finch.Response.t()}
           | {:error, Mint.Types.error()}
 
@@ -43,7 +49,7 @@ defmodule MarketClient.Transport.Http do
     end
   end
 
-  @spec header_from_keyword({atom(), binary()}) :: {binary(), binary()}
+  @spec header_from_keyword({atom, binary}) :: {binary, binary}
 
   def header_from_keyword({:authorization, val}) do
     {"authorization", "bearer #{val}"}

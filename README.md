@@ -60,7 +60,13 @@ MarketClient.new({:oanda, %{
 # https://ftx.us/api/markets/ETH/USD/candles?resolution=60&start_time=1621200276&end_time=1621201476
 # https://ftx.us/api/markets/eth/usd/candles?resolution=60&limit=50&start_time=0&end_time=1621200227
 
-res = MarketClient.new({:ftx_us, nil}, {:crypto, {:eth, :usd}}, &IO.inspect/1)
-MarketClient.Transport.Http.start_link()
+res = MarketClient.new(:ftx_us, {:crypto, {:eth, :usd}}, fn {:ok, %{body: body}} ->
+    body |> Jason.decode!() |> Map.get("result") |> IO.inspect()
+end)
+
+MarketClient.new(:ftx_us, {:crypto, {:eth, :usd}}, &IO.inspect/1) |> MarketClient.start_ws()
+
+Supervisor.start_link([{MarketClient, [res]}], strategy: :one_for_one, name: MySupervisor)
+
 MarketClient.http_fetch(res)
 ```

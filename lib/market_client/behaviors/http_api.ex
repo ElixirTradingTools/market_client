@@ -9,10 +9,10 @@ defmodule MarketClient.Behaviors.HttpApi do
   alias MarketClient.Resource
 
   @type method :: :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
-  @callback http_url(Resource.t()) :: binary()
+  @callback http_url(Resource.t()) :: binary
   @callback http_method(Resource.t()) :: method()
   @callback http_headers(Resource.t()) :: List.t()
-  @callback http_query_params(Resource.t()) :: binary()
+  @callback http_query_params(Resource.t()) :: binary
 
   defmacro __using__([]) do
     alias MarketClient.Shared
@@ -32,11 +32,7 @@ defmodule MarketClient.Behaviors.HttpApi do
       @spec http_fetch(Resource.t()) :: {:ok, Finch.Response.t()} | {:error, Mint.Types.error()}
 
       def http_fetch(res = %Resource{}) do
-        url = MarketClient.http_url(res)
-        method = MarketClient.http_method(res)
-        headers = MarketClient.http_headers(res)
-
-        Http.request(method, url, headers)
+        Http.request(res)
       end
     end
   end
