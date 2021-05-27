@@ -17,13 +17,13 @@ defmodule MarketClient.Vendor.Polygon do
   end
 
   @impl WsApi
-  def format_asset_id(%Resource{broker: {:polygon, _}, asset_id: {:stock, ticker}})
+  def get_asset_id(%Resource{broker: {:polygon, _}, asset_id: {:stock, ticker}})
       when is_binary(ticker) do
     "Q.#{String.upcase(ticker)}"
   end
 
   @impl WsApi
-  def format_asset_id(%Resource{
+  def get_asset_id(%Resource{
         broker: {:polygon, _},
         asset_id: {:forex, {c1, c2}, data_type: data_type}
       }) do
@@ -41,7 +41,7 @@ defmodule MarketClient.Vendor.Polygon do
       },
       %{
         "action" => "subscribe",
-        "params" => format_asset_id(res)
+        "params" => get_asset_id(res)
       }
     ]
     |> Enum.map(&Jason.encode!/1)
@@ -51,7 +51,7 @@ defmodule MarketClient.Vendor.Polygon do
   def msg_unsubscribe(%Resource{broker: {:polygon, _}, asset_id: asset_id}) do
     %{
       "action" => "unsubscribe",
-      "params" => format_asset_id(asset_id)
+      "params" => get_asset_id(asset_id)
     }
     |> Jason.encode!()
   end

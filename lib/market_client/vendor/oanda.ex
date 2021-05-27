@@ -24,7 +24,7 @@ defmodule MarketClient.Vendor.Oanda do
             Enum.map(
               [
                 granularity: "#{get_resolution_unit(res_unit)}#{res_count}",
-                instruments: format_asset_id(c1, c2),
+                instruments: get_asset_id(c1, c2),
                 includeUnitsAvailable: "false",
                 since: DateTime.to_unix(DateTime.utc_now(), :second) - 50
               ],
@@ -49,7 +49,7 @@ defmodule MarketClient.Vendor.Oanda do
     end
   end
 
-  def format_asset_id(c1, c2) when is_atom(c1) and is_atom(c2) do
+  def get_asset_id(c1, c2) when is_atom(c1) and is_atom(c2) do
     "#{Shared.a2s_upcased(c1)}_#{Shared.a2s_upcased(c2)}"
   end
 

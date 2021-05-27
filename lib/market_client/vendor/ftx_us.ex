@@ -21,7 +21,7 @@ defmodule MarketClient.Vendor.FtxUs do
     %{
       "op" => "subscribe",
       "channel" => "trades",
-      "market" => get_asset_pair(res)
+      "market" => get_asset_id(res)
     }
     |> Jason.encode!()
   end
@@ -31,7 +31,7 @@ defmodule MarketClient.Vendor.FtxUs do
     %{
       "op" => "unsubscribe",
       "channel" => "trades",
-      "params" => get_asset_pair(res)
+      "params" => get_asset_id(res)
     }
     |> Jason.encode!()
   end
@@ -40,7 +40,7 @@ defmodule MarketClient.Vendor.FtxUs do
 
   @impl HttpApi
   def http_url(res = %Resource{broker: {:ftx_us, _}}) do
-    "https://ftx.us/api/markets/#{get_asset_pair(res)}/candles?#{http_query_params(res)}"
+    "https://ftx.us/api/markets/#{get_asset_id(res)}/candles?#{http_query_params(res)}"
   end
 
   @impl HttpApi

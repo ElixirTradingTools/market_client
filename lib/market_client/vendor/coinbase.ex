@@ -13,7 +13,7 @@ defmodule MarketClient.Vendor.Coinbase do
   end
 
   @impl WsApi
-  def format_asset_id(%Resource{broker: {:coinbase, _}, asset_id: {:crypto, {c1, c2}}}) do
+  def get_asset_id(%Resource{broker: {:coinbase, _}, asset_id: {:crypto, {c1, c2}}}) do
     "#{Shared.a2s_upcased(c1)}-#{Shared.a2s_upcased(c2)}"
   end
 
@@ -22,7 +22,7 @@ defmodule MarketClient.Vendor.Coinbase do
     %{
       "type" => "subscribe",
       "channels" => ["ticker"],
-      "product_ids" => [format_asset_id(res)]
+      "product_ids" => [get_asset_id(res)]
     }
     |> Jason.encode!()
   end
@@ -32,7 +32,7 @@ defmodule MarketClient.Vendor.Coinbase do
     %{
       "type" => "unsubscribe",
       "channels" => ["level2"],
-      "product_ids" => [format_asset_id(res)]
+      "product_ids" => [get_asset_id(res)]
     }
     |> Jason.encode!()
   end

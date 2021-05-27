@@ -13,37 +13,32 @@ defmodule MarketClient do
   @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
 
   @spec pid_tuple(Resource.t(), :ws | :http) :: {:ws | :http, atom, term}
+  @spec get_broker_module(Resource.t()) :: module
+  @spec new(atom, {atom, binary | {atom, atom}}, function) :: Resource.t()
+  @spec new({atom, term}, {atom, binary | {atom, atom}}, function) :: Resource.t()
+  @spec new(atom, {atom, binary | {atom, atom}}, function, map | nil) :: Resource.t()
+  @spec new({atom, term}, {atom, binary | {atom, atom}}, function, map | nil) :: Resource.t()
 
   def pid_tuple(%Resource{broker: {broker, _}, asset_id: asset_id}, type) do
     {type, broker, asset_id}
   end
 
-  @spec get_broker_module(Resource.t()) :: module
-
   def get_broker_module(%Resource{broker: {broker_name, _}}) do
     Keyword.get(@broker_modules, broker_name, nil)
   end
 
-  @spec new(atom, {atom, binary | {atom, atom}}, function) :: Resource.t()
-
   def new(broker, asset_id, listener) when broker in @brokers do
     new({broker, nil}, asset_id, listener, nil)
   end
-
-  @spec new({atom, term}, {atom, binary | {atom, atom}}, function) :: Resource.t()
 
   def new(broker = {name, _}, asset_id, listener)
       when is_tuple(asset_id) and is_function(listener) and name in @brokers do
     new(broker, asset_id, listener, nil)
   end
 
-  @spec new(atom, {atom, binary | {atom, atom}}, function, map | nil) :: Resource.t()
-
   def new(broker, asset_id, listener, opts) when broker in @brokers do
     new({broker, nil}, asset_id, listener, opts)
   end
-
-  @spec new({atom, term}, {atom, binary | {atom, atom}}, function, map | nil) :: Resource.t()
 
   def new(broker = {name, _}, asset_id, listener, opts)
       when is_tuple(asset_id) and is_function(listener) and name in @brokers do
@@ -59,7 +54,7 @@ defmodule MarketClient do
     :start_link,
     :start_ws,
     :stop_ws,
-    :format_asset_id,
+    :get_asset_id,
     :ws_url,
     :http_fetch,
     :http_url,
@@ -76,36 +71,4 @@ defmodule MarketClient do
       |> apply(unquote(func_name), [res])
     end
   end)
-
-  # def start_link([res = %Resource{}]) do
-  #   res
-  #   |> get_broker_module
-  #   |> apply(:start_link, [res])
-  # end
-
-  # def start_link([res = %Resource{}, debug]) when is_boolean(debug) do
-  #   res
-  #   |> get_broker_module
-  #   |> apply(:start_link, [res, debug])
-  # end
-
-  ###################
-
-  # [
-  #   :start,
-  #   :stop
-  # ]
-  # |> Enum.each(fn func_name ->
-  #   def unquote(func_name)(pid, res = %Resource{}) do
-  #     res
-  #     |> get_broker_module
-  #     |> apply(unquote(func_name), [pid, res])
-  #   end
-  # end)
-
-  # def start(pid, res = %Resource{}, other) do
-  #   res
-  #   |> get_broker_module
-  #   |> apply(:start, [pid, res, other])
-  # end
 end
