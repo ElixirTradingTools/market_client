@@ -10,29 +10,57 @@ defmodule MarketClient.Transport.Ws do
   alias MarketClient.Resource
   require Logger
 
-  @spec start_link(binary, module, Resource.t(), Keyword.t()) :: {:ok, pid} | {:error, term}
+  @spec start_link(Resource.t(), atom | nil) :: {:ok, pid} | {:error, term}
   @spec send_json(binary | List.t(), pid | tuple) :: :ok | {:error, term}
+  @spec send_json(binary, WebSockex.Conn.t()) :: :ok | {:error, term}
 
-  def start_link(url, mod, res, opts) do
-    {:ok, pid} = WebSockex.start_link(url, mod, res, opts)
-    mod.start(pid, res)
-    {:ok, pid}
+  def start_link(res = %Resource{}, debug \\ nil) do
+    mod = MarketClient.get_broker_module(res)
+    url = mod.ws_url(res)
+    via = mod.ws_via_tuple(res)
+
+    case debug do
+      :debug -> WebSockex.start_link(url, mod, res, name: via, debug: [:trace])
+      _ -> WebSockex.start_link(url, mod, res, name: via)
+    end
+  end
+
+  def send_json(json_msg, conn = %WebSockex.Conn{}) when is_binary(json_msg) do
+    Logger.info("send_json: #{json_msg}")
+
+    case WebSockex.Frame.encode_frame({:text, json_msg}) do
+      {:ok, frame} -> WebSockex.Conn.socket_send(conn, frame)
+      other -> other
+    end
   end
 
   def send_json(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
-    IO.puts("send_json: #{json_msg}")
+    Logger.info("send_json: #{json_msg}")
     WebSockex.send_frame(pid, {:text, json_msg})
   end
 
-  def send_json(json_msgs, pid) when is_list(json_msgs) and (is_pid(pid) or is_tuple(pid)) do
+  def send_json(json_msgs, client) when is_list(json_msgs) do
+    cond do
+      is_pid(client) -> loop_send_json(json_msgs, client)
+      client == %WebSockex.Conn{} -> loop_send_json(json_msgs, client)
+      is_tuple(client) and elem(client, 0) == :via -> loop_send_json(json_msgs, client)
+      true -> raise "send_json/2 received invalid client type"
+    end
+  end
+
+  defp loop_send_json(json_msgs, client) do
     Enum.reduce(json_msgs, :ok, fn
-      msg, :ok -> send_json(msg, pid)
+      msg, :ok when is_binary(msg) -> send_json(msg, client)
       _, other -> other
     end)
   end
 
+  def send_pong(via_tuple, id) do
+    WebSockex.send_frame(via_tuple, {:pong, id})
+  end
+
   def handle_cast({:send, frame = {type, msg}}, res) do
-    IO.puts("Sending #{type} frame with payload: #{msg}")
+    Logger.info("Sending #{type} frame with payload: #{msg}")
     {:noreply, frame, res}
   end
 
@@ -71,6 +99,11 @@ defmodule MarketClient.Transport.Ws do
         state.listener.({:data, parsed_json})
         {:ok, state}
     end
+  end
+
+  def handle_ping(ping_frame, state) do
+    IO.puts("\nPING FRAME: #{inspect(ping_frame)}\n")
+    {:ok, state}
   end
 
   def handle_disconnect(status, res) do

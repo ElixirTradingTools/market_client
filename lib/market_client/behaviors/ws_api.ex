@@ -8,17 +8,18 @@ defmodule MarketClient.Behaviors.WsApi do
     Shared
   }
 
-  @optional_callbacks start_link: 1,
-                      start: 2,
-                      stop: 2,
-                      get_asset_id: 1
+  @optional_callbacks stop: 2,
+                      start_link: 1,
+                      get_asset_id: 1,
+                      handle_ping: 2
   @callback ws_url(Resource.t()) :: binary
   @callback start_link(Resource.t()) :: {:ok, pid} | {:error, term}
-  @callback start(pid, Resource.t()) :: {:ok, pid} | {:error, term}
   @callback stop(pid, Resource.t()) :: {:ok, pid} | {:error, term}
   @callback get_asset_id(Resource.t()) :: binary
   @callback msg_subscribe(Resource.t()) :: binary | List.t()
   @callback msg_unsubscribe(Resource.t()) :: binary | List.t()
+  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) ::
+              {:ok | :close, any} | {:reply | :close, any, any}
 
   defmacro __using__([]) do
     unless Shared.is_vendor_module(__CALLER__.module) do
@@ -36,14 +37,14 @@ defmodule MarketClient.Behaviors.WsApi do
       @spec ws_via_tuple(Resource.t()) :: {:via, module, {module, {atom, atom, term}}}
       @spec start_ws(Resource.t()) :: {:ok, pid}
       @spec child_spec(Resource.t()) :: map
-      @spec start_link(Resource.t()) :: {:ok, pid} | {:error, term}
       @spec handle_connect(WebSockex.Conn.t(), term) :: {:ok, term}
+      @spec handle_ping({:ping, binary}, Resource.t()) ::
+              {:ok | :close, any} | {:reply | :close, any, any}
       @spec stop(pid, Resource.t()) :: {:ok, pid} | {:error, term}
       @spec get_asset_id(Resource.t()) :: binary
 
-      def get_asset_id(%Resource{asset_id: {:crypto, {c1, c2}}})
-          when is_atom(c1) and is_atom(c2) do
-        "#{to_string(c1)}/#{to_string(c2)}"
+      def get_asset_id(%Resource{asset_id: {:crypto, {a, b}}}) when is_atom(a) and is_atom(b) do
+        "#{to_string(a)}/#{to_string(b)}"
       end
 
       def ws_via_tuple(res = %Resource{}) do
@@ -61,24 +62,21 @@ defmodule MarketClient.Behaviors.WsApi do
         }
       end
 
-      def start_link(res = %Resource{}) do
-        mod = MarketClient.get_broker_module(res)
-        url = mod.ws_url(res)
-        via = mod.ws_via_tuple(res)
-
-        Ws.start_link(url, mod, res, name: via)
+      def start_link(res = %Resource{options: opts}) do
+        case opts do
+          %{debug: true} -> Ws.start_link(res, :debug)
+          _ -> Ws.start_link(res)
+        end
       end
 
-      def handle_connect(_conn, res = %Resource{}) do
+      def handle_connect(conn, res = %Resource{}) do
         IO.puts("-- CONNECT --")
-        {:ok, res}
-      end
 
-      @spec start(pid, Resource.t()) :: {:ok, pid} | {:error, term}
-      def start(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
         res
         |> msg_subscribe()
-        |> Ws.send_json(pid)
+        |> Ws.send_json(conn)
+
+        {:ok, res}
       end
 
       def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
@@ -97,11 +95,18 @@ defmodule MarketClient.Behaviors.WsApi do
         {:ok, state}
       end
 
-      defoverridable start_ws: 1,
+      def handle_ping(ping_frame, res = %Resource{}) do
+        case ping_frame do
+          {:ping, id} -> {:reply, {:pong, id}, res}
+          :ping -> {:reply, {:pong, ""}, res}
+        end
+      end
+
+      defoverridable stop: 2,
+                     start_ws: 1,
                      handle_connect: 2,
-                     start: 2,
-                     stop: 2,
-                     get_asset_id: 1
+                     get_asset_id: 1,
+                     handle_ping: 2
     end
   end
 end
