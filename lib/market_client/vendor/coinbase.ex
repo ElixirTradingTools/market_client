@@ -21,7 +21,7 @@ defmodule MarketClient.Vendor.Coinbase do
   def msg_subscribe(res = %Resource{vendor: {:coinbase, _}}) do
     ~s({
       "type":"subscribe",
-      "channels":["ticker"],
+      "channels":["level2"],
       "product_ids":["#{get_asset_id(res.asset_id)}"]
     })
     |> Shared.remove_whitespace()

@@ -10,6 +10,8 @@ defmodule MarketClient do
     oanda: MarketClient.Vendor.Oanda
   ]
 
+  @type via :: {:via, module, any}
+
   @vendors Enum.map(@vendor_modules, fn {a, _} -> a end)
 
   @spec pid_tuple(Resource.t(), :ws | :http) :: {:ws | :http, atom, any}

@@ -59,6 +59,10 @@ defmodule MarketClient.Transport.Ws do
     WebSockex.send_frame(via_tuple, {:pong, id})
   end
 
+  def close(client) do
+    WebSockex.cast(client, {:close, ""})
+  end
+
   def handle_cast({:send, frame = {type, msg}}, res) do
     Logger.info("Sending #{type} frame with payload: #{msg}")
     {:noreply, frame, res}

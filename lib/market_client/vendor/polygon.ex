@@ -10,7 +10,7 @@ defmodule MarketClient.Vendor.Polygon do
   @spec ws_url(Resource.t()) :: binary
 
   @impl WsApi
-  def ws_url(%Resource{vendor: {:polygon, _}, asset_id: {class, _}}) do
+  def ws_url(%Resource{vendor: {:polygon, _}, asset_id: {class, _, _}}) do
     case class do
       :forex -> "wss://socket.polygon.io/forex"
       :stock -> "wss://socket.polygon.io/stocks"

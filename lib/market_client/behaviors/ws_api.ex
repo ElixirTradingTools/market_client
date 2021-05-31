@@ -8,14 +8,14 @@ defmodule MarketClient.Behaviors.WsApi do
     Shared
   }
 
-  @optional_callbacks stop: 2,
+  @optional_callbacks stop: 1,
                       start_link: 1,
                       get_asset_id: 1,
                       handle_ping: 2
   @callback ws_url(Resource.t()) :: binary
   @callback start_link(Resource.t()) :: {:ok, pid} | {:error, any}
-  @callback stop(pid, Resource.t()) :: {:ok, pid} | {:error, any}
-  @callback get_asset_id({atom, atom, any}) :: binary
+  @callback stop(pid | Resource.t() | MarketClient.via()) :: :ok | {:error, any}
+  @callback get_asset_id({atom, atom, binary | {atom, atom}}) :: binary
   @callback msg_subscribe(Resource.t()) :: binary | list
   @callback msg_unsubscribe(Resource.t()) :: binary | list
   @callback handle_ping(:ping | {:ping, binary}, Resource.t()) ::
@@ -36,14 +36,10 @@ defmodule MarketClient.Behaviors.WsApi do
 
       @behaviour MarketClient.Behaviors.WsApi
 
-      @spec ws_via_tuple(Resource.t()) :: {:via, module, tuple}
+      @spec ws_via_tuple(Resource.t()) :: MarketClient.via()
       @spec start_ws(Resource.t()) :: {:ok, pid}
       @spec child_spec(Resource.t()) :: map
       @spec handle_connect(WebSockex.Conn.t(), any) :: {:ok, any}
-      @spec handle_ping(:ping | {:ping, binary}, Resource.t()) ::
-              {:ok | :close, any} | {:reply | :close, any, any}
-      @spec stop(pid | {:via, module, tuple}, Resource.t()) :: {:ok, pid} | {:error, any}
-      @spec get_asset_id({atom, atom, binary | {atom, atom}}) :: binary
 
       def get_asset_id({_, _, asset_name}) do
         case asset_name do
@@ -79,8 +75,13 @@ defmodule MarketClient.Behaviors.WsApi do
         {:ok, res}
       end
 
-      def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
-        res |> msg_unsubscribe() |> Ws.send_json(pid)
+      def stop(client) do
+        case client do
+          client when is_pid(client) -> client
+          %Resource{} -> client |> ws_via_tuple()
+          {:via, _, _} -> client
+        end
+        |> Ws.close()
       end
 
       def handle_frame({type, msg}, state) do
@@ -99,11 +100,12 @@ defmodule MarketClient.Behaviors.WsApi do
         end
       end
 
-      defoverridable stop: 2,
-                     start_ws: 1,
-                     handle_connect: 2,
+      defoverridable handle_connect: 2,
                      get_asset_id: 1,
-                     handle_ping: 2
+                     handle_ping: 2,
+                     start_link: 1,
+                     start_ws: 1,
+                     stop: 1
     end
   end
 end
