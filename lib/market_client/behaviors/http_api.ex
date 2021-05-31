@@ -11,7 +11,7 @@ defmodule MarketClient.Behaviors.HttpApi do
   @type method :: :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
   @callback http_url(Resource.t()) :: binary
   @callback http_method(Resource.t()) :: method()
-  @callback http_headers(Resource.t()) :: List.t()
+  @callback http_headers(Resource.t()) :: list
   @callback http_query_params(Resource.t()) :: binary
 
   defmacro __using__([]) do

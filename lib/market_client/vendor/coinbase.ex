@@ -8,32 +8,32 @@ defmodule MarketClient.Vendor.Coinbase do
   use WsApi
 
   @impl WsApi
-  def ws_url(%Resource{broker: {:coinbase, _}}) do
+  def ws_url(%Resource{vendor: {:coinbase, _}}) do
     "wss://ws-feed.pro.coinbase.com"
   end
 
   @impl WsApi
-  def get_asset_id(%Resource{broker: {:coinbase, _}, asset_id: {:crypto, {c1, c2}}}) do
-    "#{Shared.a2s_upcased(c1)}-#{Shared.a2s_upcased(c2)}"
+  def get_asset_id({:crypto, _, {a, b}}) do
+    "#{Shared.a2s_upcased(a)}-#{Shared.a2s_upcased(b)}"
   end
 
   @impl WsApi
-  def msg_subscribe(res = %Resource{broker: {:coinbase, _}}) do
-    %{
-      "type" => "subscribe",
-      "channels" => ["ticker"],
-      "product_ids" => [get_asset_id(res)]
-    }
-    |> Jason.encode!()
+  def msg_subscribe(res = %Resource{vendor: {:coinbase, _}}) do
+    ~s({
+      "type":"subscribe",
+      "channels":["ticker"],
+      "product_ids":["#{get_asset_id(res.asset_id)}"]
+    })
+    |> Shared.remove_whitespace()
   end
 
   @impl WsApi
-  def msg_unsubscribe(res = %Resource{broker: {:coinbase, _}}) do
-    %{
-      "type" => "unsubscribe",
-      "channels" => ["level2"],
-      "product_ids" => [get_asset_id(res)]
-    }
-    |> Jason.encode!()
+  def msg_unsubscribe(res = %Resource{vendor: {:coinbase, _}}) do
+    ~s({
+      "type":"unsubscribe",
+      "channels":["level2"],
+      "product_ids":["#{get_asset_id(res.asset_id)}"]
+    })
+    |> Shared.remove_whitespace()
   end
 end

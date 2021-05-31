@@ -60,7 +60,6 @@ MarketClient.new({:oanda, %{
 # https://ftx.us/api/markets/ETH/USD/candles?resolution=60&start_time=1621200276&end_time=1621201476
 # https://ftx.us/api/markets/eth/usd/candles?resolution=60&limit=50&start_time=0&end_time=1621200227
 
-:ftx_us
-|> MarketClient.new({:crypto, {:eth, :usd}}, &IO.inspect/1)
-|> MarketClient.start_ws()
+MarketClient.new(:binance_us, {:crypto, :ohlcv_1min, {:eth, :usd}}, &IO.inspect/1) |>
+MarketClient.start_ws()
 ```

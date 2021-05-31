@@ -10,12 +10,12 @@ defmodule MarketClient.Transport.Ws do
   alias MarketClient.Resource
   require Logger
 
-  @spec start_link(Resource.t(), atom | nil) :: {:ok, pid} | {:error, term}
-  @spec send_json(binary | List.t(), pid | tuple) :: :ok | {:error, term}
-  @spec send_json(binary, WebSockex.Conn.t()) :: :ok | {:error, term}
+  @spec start_link(Resource.t(), atom | nil) :: {:ok, pid} | {:error, any}
+  @spec send_json(binary | list, pid | tuple) :: :ok | {:error, any}
+  @spec send_json(binary, WebSockex.Conn.t()) :: :ok | {:error, any}
 
   def start_link(res = %Resource{}, debug \\ nil) do
-    mod = MarketClient.get_broker_module(res)
+    mod = MarketClient.get_vendor_module(res)
     url = mod.ws_url(res)
     via = mod.ws_via_tuple(res)
 
@@ -90,19 +90,7 @@ defmodule MarketClient.Transport.Ws do
   end
 
   def handle_frame({:text, msg}, state = %Resource{}) do
-    case Jason.decode(msg) do
-      {:error, _} ->
-        state.listener.({:message, msg})
-        {:ok, state}
-
-      {:ok, parsed_json} ->
-        state.listener.({:data, parsed_json})
-        {:ok, state}
-    end
-  end
-
-  def handle_ping(ping_frame, state) do
-    IO.puts("\nPING FRAME: #{inspect(ping_frame)}\n")
+    state.listener.(msg)
     {:ok, state}
   end
 
@@ -112,7 +100,7 @@ defmodule MarketClient.Transport.Ws do
   end
 
   def terminate(close_reason, state) do
-    IO.puts("Connection closed: #{inspect(close_reason)}")
+    Logger.info("Connection closed: #{inspect(close_reason)}")
     state.listener.({:close, close_reason})
     {:close, state}
   end

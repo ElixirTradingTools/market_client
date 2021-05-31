@@ -21,7 +21,6 @@ defmodule MarketClient.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jason, "~> 1.0"},
       {:typed_struct, "~> 0.2.1"},
       {:websockex, "~> 0.4.2"},
       {:finch, "~> 0.3.0"},

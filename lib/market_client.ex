@@ -1,8 +1,8 @@
 defmodule MarketClient do
   alias MarketClient.Resource
 
-  @broker_modules [
-    binance_global: MarketClient.Vendor.BinanceGlobal,
+  @vendor_modules [
+    binance: MarketClient.Vendor.Binance,
     binance_us: MarketClient.Vendor.BinanceUs,
     coinbase: MarketClient.Vendor.Coinbase,
     polygon: MarketClient.Vendor.Polygon,
@@ -10,40 +10,40 @@ defmodule MarketClient do
     oanda: MarketClient.Vendor.Oanda
   ]
 
-  @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
+  @vendors Enum.map(@vendor_modules, fn {a, _} -> a end)
 
-  @spec pid_tuple(Resource.t(), :ws | :http) :: {:ws | :http, atom, term}
-  @spec get_broker_module(Resource.t()) :: module
+  @spec pid_tuple(Resource.t(), :ws | :http) :: {:ws | :http, atom, any}
+  @spec get_vendor_module(Resource.t()) :: module
   @spec new(atom, {atom, binary | {atom, atom}}, function) :: Resource.t()
-  @spec new({atom, term}, {atom, binary | {atom, atom}}, function) :: Resource.t()
-  @spec new(atom, {atom, binary | {atom, atom}}, function, map | nil) :: Resource.t()
-  @spec new({atom, term}, {atom, binary | {atom, atom}}, function, map | nil) :: Resource.t()
+  @spec new({atom, any}, {atom, binary | {atom, atom}}, function) :: Resource.t()
+  @spec new(atom, {atom, binary | {atom, atom}}, function, keyword | nil) :: Resource.t()
+  @spec new({atom, any}, {atom, binary | {atom, atom}}, function, keyword | nil) :: Resource.t()
 
-  def pid_tuple(%Resource{broker: {broker, _}, asset_id: asset_id}, type) do
-    {type, broker, asset_id}
+  def pid_tuple(%Resource{vendor: {vendor, _}, asset_id: asset_id}, transport_type) do
+    {transport_type, vendor, asset_id}
   end
 
-  def get_broker_module(%Resource{broker: {broker_name, _}}) do
-    Keyword.get(@broker_modules, broker_name, nil)
+  def get_vendor_module(%Resource{vendor: {vendor_name, _}}) do
+    Keyword.get(@vendor_modules, vendor_name, nil)
   end
 
-  def new(broker, asset_id, listener) when broker in @brokers do
-    new({broker, nil}, asset_id, listener, nil)
+  def new(vendor, asset_id, listener) when vendor in @vendors do
+    new({vendor, nil}, asset_id, listener, nil)
   end
 
-  def new(broker = {name, _}, asset_id, listener)
-      when is_tuple(asset_id) and is_function(listener) and name in @brokers do
-    new(broker, asset_id, listener, nil)
+  def new(vendor = {name, _}, asset_id, listener)
+      when is_tuple(asset_id) and is_function(listener) and name in @vendors do
+    new(vendor, asset_id, listener, nil)
   end
 
-  def new(broker, asset_id, listener, opts) when broker in @brokers do
-    new({broker, nil}, asset_id, listener, opts)
+  def new(vendor, asset_id, listener, opts) when vendor in @vendors do
+    new({vendor, nil}, asset_id, listener, opts)
   end
 
-  def new(broker = {name, _}, asset_id, listener, opts)
-      when is_tuple(asset_id) and is_function(listener) and name in @brokers do
+  def new(vendor = {name, _}, asset_id, listener, opts)
+      when is_tuple(asset_id) and is_function(listener) and name in @vendors do
     %Resource{
-      broker: broker,
+      vendor: vendor,
       asset_id: asset_id,
       listener: listener,
       options: opts
@@ -67,7 +67,7 @@ defmodule MarketClient do
   |> Enum.each(fn func_name ->
     def unquote(func_name)(res = %Resource{}) do
       res
-      |> get_broker_module()
+      |> get_vendor_module()
       |> apply(unquote(func_name), [res])
     end
   end)

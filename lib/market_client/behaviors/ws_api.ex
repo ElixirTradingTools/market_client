@@ -13,11 +13,11 @@ defmodule MarketClient.Behaviors.WsApi do
                       get_asset_id: 1,
                       handle_ping: 2
   @callback ws_url(Resource.t()) :: binary
-  @callback start_link(Resource.t()) :: {:ok, pid} | {:error, term}
-  @callback stop(pid, Resource.t()) :: {:ok, pid} | {:error, term}
-  @callback get_asset_id(Resource.t()) :: binary
-  @callback msg_subscribe(Resource.t()) :: binary | List.t()
-  @callback msg_unsubscribe(Resource.t()) :: binary | List.t()
+  @callback start_link(Resource.t()) :: {:ok, pid} | {:error, any}
+  @callback stop(pid, Resource.t()) :: {:ok, pid} | {:error, any}
+  @callback get_asset_id({atom, atom, any}) :: binary
+  @callback msg_subscribe(Resource.t()) :: binary | list
+  @callback msg_unsubscribe(Resource.t()) :: binary | list
   @callback handle_ping(:ping | {:ping, binary}, Resource.t()) ::
               {:ok | :close, any} | {:reply | :close, any, any}
 
@@ -27,6 +27,8 @@ defmodule MarketClient.Behaviors.WsApi do
     end
 
     quote do
+      require Logger
+
       alias MarketClient.{
         Transport.Ws,
         Resource
@@ -34,28 +36,31 @@ defmodule MarketClient.Behaviors.WsApi do
 
       @behaviour MarketClient.Behaviors.WsApi
 
-      @spec ws_via_tuple(Resource.t()) :: {:via, module, {module, {atom, atom, term}}}
+      @spec ws_via_tuple(Resource.t()) :: {:via, module, tuple}
       @spec start_ws(Resource.t()) :: {:ok, pid}
       @spec child_spec(Resource.t()) :: map
-      @spec handle_connect(WebSockex.Conn.t(), term) :: {:ok, term}
-      @spec handle_ping({:ping, binary}, Resource.t()) ::
+      @spec handle_connect(WebSockex.Conn.t(), any) :: {:ok, any}
+      @spec handle_ping(:ping | {:ping, binary}, Resource.t()) ::
               {:ok | :close, any} | {:reply | :close, any, any}
-      @spec stop(pid, Resource.t()) :: {:ok, pid} | {:error, term}
-      @spec get_asset_id(Resource.t()) :: binary
+      @spec stop(pid | {:via, module, tuple}, Resource.t()) :: {:ok, pid} | {:error, any}
+      @spec get_asset_id({atom, atom, binary | {atom, atom}}) :: binary
 
-      def get_asset_id(%Resource{asset_id: {:crypto, {a, b}}}) when is_atom(a) and is_atom(b) do
-        "#{to_string(a)}/#{to_string(b)}"
+      def get_asset_id({_, _, asset_name}) do
+        case asset_name do
+          name when is_binary(name) -> name
+          {a, b} -> "#{to_string(a)}/#{to_string(b)}"
+        end
       end
 
       def ws_via_tuple(res = %Resource{}) do
         {:via, Registry, {MarketClient.Registry, MarketClient.pid_tuple(res, :ws)}}
       end
 
-      def start_ws(res = %Resource{broker: {broker, _}, asset_id: asset_id}) do
+      def start_ws(res = %Resource{vendor: {vendor, _}, asset_id: asset_id}) do
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, child_spec(res))
       end
 
-      def child_spec(res = %Resource{broker: {broker, _}, asset_id: asset_id}) do
+      def child_spec(res = %Resource{vendor: {vendor, _}, asset_id: asset_id}) do
         %{
           id: MarketClient.pid_tuple(res, :ws),
           start: {__MODULE__, :start_link, [res]}
@@ -70,28 +75,20 @@ defmodule MarketClient.Behaviors.WsApi do
       end
 
       def handle_connect(conn, res = %Resource{}) do
-        IO.puts("-- CONNECT --")
-
-        res
-        |> msg_subscribe()
-        |> Ws.send_json(conn)
-
+        res |> msg_subscribe() |> Ws.send_json(conn)
         {:ok, res}
       end
 
       def stop(pid, res = %Resource{}) when is_pid(pid) or is_tuple(pid) do
-        res
-        |> msg_unsubscribe()
-        |> Ws.send_json(pid)
-      end
-
-      def handle_frame({:text, msg}, state) do
-        state.listener.(msg)
-        {:ok, state}
+        res |> msg_unsubscribe() |> Ws.send_json(pid)
       end
 
       def handle_frame({type, msg}, state) do
-        IO.puts("Unknown frame: #{inspect(type)}: #{msg}")
+        case type do
+          :text -> state.listener.(msg)
+          _ -> Logger.warn("Unknown frame: #{inspect({type, msg})}")
+        end
+
         {:ok, state}
       end
 

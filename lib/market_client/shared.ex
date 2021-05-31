@@ -1,4 +1,11 @@
 defmodule MarketClient.Shared do
+  @spec is_vendor_module(module) :: boolean
+  @spec as_list(any) :: list
+  @spec a2s_upcased(atom) :: binary
+  @spec a2s_downcased(atom) :: binary
+  @spec remove_whitespace(binary) :: binary
+  @spec unix_now(:ms | :sec, none() | binary) :: integer
+
   def is_vendor_module(module) do
     [Module.split(MarketClient.Vendor), Module.split(module)]
     |> Enum.reduce(&List.starts_with?/2)
@@ -20,7 +27,10 @@ defmodule MarketClient.Shared do
     to_string(atom) |> String.downcase()
   end
 
-  @spec unix_now(:ms | :sec, none() | binary) :: integer
+  def remove_whitespace(string) do
+    string |> String.replace(~r(\s|\n), "")
+  end
+
   def unix_now(unit, timezone \\ "Etc/UTC") do
     case unit do
       :ms -> DateTime.now!(timezone) |> DateTime.to_unix(:millisecond)

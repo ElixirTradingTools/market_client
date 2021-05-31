@@ -9,14 +9,18 @@ defmodule MarketClient.Transport.Http do
   @type method :: :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
 
   @spec start(module) :: DynamicSupervisor.on_start_child()
+  @spec request(Resource.t()) ::
+          {:ok, Finch.Response.t()}
+          | {:error, Mint.Types.error()}
+  @spec stream(method, binary, keyword, function) ::
+          {:ok, Finch.Response.t()}
+          | {:error, Mint.Types.error()}
+  @spec headers_from_keywords(keyword) :: list
+  @spec header_from_keyword({atom, binary}) :: {binary, binary}
 
   def start(module) do
     DynamicSupervisor.start_child(MarketClient, {Finch, name: module})
   end
-
-  @spec request(Resource.t()) ::
-          {:ok, Finch.Response.t()}
-          | {:error, Mint.Types.error()}
 
   def request(res = %Resource{}) do
     url = res |> MarketClient.http_url()
@@ -29,17 +33,11 @@ defmodule MarketClient.Transport.Http do
     |> res.listener.()
   end
 
-  @spec stream(method, binary, Keyword.t(), function) ::
-          {:ok, Finch.Response.t()}
-          | {:error, Mint.Types.error()}
-
   def stream(method, url, headers, callback) do
     method
     |> Finch.build(url, headers_from_keywords(headers))
     |> Finch.stream(Http, nil, callback)
   end
-
-  @spec headers_from_keywords(Keyword.t()) :: List.t()
 
   def headers_from_keywords([]), do: []
 
@@ -48,8 +46,6 @@ defmodule MarketClient.Transport.Http do
       acc -> [header_from_keyword(word) | acc]
     end
   end
-
-  @spec header_from_keyword({atom, binary}) :: {binary, binary}
 
   def header_from_keyword({:authorization, val}) do
     {"authorization", "bearer #{val}"}
