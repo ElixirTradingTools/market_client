@@ -6,8 +6,9 @@ defmodule MarketClient do
     binance_us: MarketClient.Vendor.BinanceUs,
     coinbase: MarketClient.Vendor.Coinbase,
     polygon: MarketClient.Vendor.Polygon,
+    oanda: MarketClient.Vendor.Oanda,
     ftx_us: MarketClient.Vendor.FtxUs,
-    oanda: MarketClient.Vendor.Oanda
+    ftx: MarketClient.Vendor.Ftx,
   ]
 
   @type via :: {:via, module, any}
