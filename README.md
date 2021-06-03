@@ -1,10 +1,13 @@
 # MarketClient
 
 A simple universal client for various brokers and data providers. Currently includes (to various degrees):
+* Coinbase
+* Binance
+* Binance US
+* FTX
+* FTX US
 * Polygon
 * Oanda
-* Binance
-* Coinbase
 
 The project is work-in-progress. Features are being added on an as-needed basis. You are encouraged to
 use this module in your projects and submit merge requests for any features you'd like to add or modify.
@@ -16,50 +19,32 @@ the following to your `mix.ex` dependencies.
 
 ## Example Usage
 ```
-res = MarketClient.new({:coinbase, nil}, {:crypto, {:eth, :usd}}, &IO.inspect/1)
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+MarketClient.new(:coinbase, {:crypto, :full_tick, {:eth, :usd}}, &IO.inspect/1)
+|> MarketClient.ws_start()
 
-res = MarketClient.new({:binance, nil}, {:crypto, {:eth, :usdt}}, &IO.inspect/1)
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+MarketClient.new(:binance, {:crypto, :full_tick, {:eth, :usdt}}, &IO.inspect/1)
+|> MarketClient.ws_start()
 
-res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:stock, {"MSFT", nil}}, &IO.inspect/1)
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+MarketClient.new(:binance_us, {:crypto, :ohlcv_1minute, {:eth, :usd}}, &IO.inspect/1)
+|> MarketClient.ws_start()
 
-res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:forex, {:gbp, :aud}}, &IO.inspect/1)
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+MarketClient.new({:polygon, [key: "XXXX"]}, {:stock, :full_tick, "msft"}, &IO.inspect/1)
+|> MarketClient.ws_start()
 
-# OANDA
-alias MarketClient.{DataProvider, Resource}
+MarketClient.new({:polygon, [key: "XXXX"]}, {:forex, :full_tick, {:gbp, :aud}}, &IO.inspect/1)
+|> MarketClient.ws_start()
 
-MarketClient.new({:oanda, %{
-        practice: true,
-        account_id: "XXXX",
-        key: "XXXX"
-    }},
-    {:forex, {:aud, :nzd}},
-    %{
-        data_type: :candlesticks,
-        resolution: {1, :minute}
-    },
+MarketClient.new(
+    {:oanda, [account_id: "X", key: "X"]},
+    {:forex, :ohlc_1minute, {:aud, :nzd}},
     &IO.inspect/1
 )
-|> Vendor.Oanda.start_link()
+|> MarketClient.http_start()
 ```
 
-## Example HTTP With FTX_US
+## How to cURL FTX US API
 
 ```
-# https://ftx.us/api/markets/ETH/USD/candles?resolution=60&start_time=1621200276&end_time=1621201476
-# https://ftx.us/api/markets/eth/usd/candles?resolution=60&limit=50&start_time=0&end_time=1621200227
-
-MarketClient.new(:binance_us, {:crypto, :ohlcv_1min, {:eth, :usd}}, &IO.inspect/1) |>
-MarketClient.start_ws()
+curl 'https://ftx.us/api/markets/ETH/USD/candles?resolution=60&start_time=1621200276&end_time=1621201476'
+curl 'https://ftx.us/api/markets/eth/usd/candles?resolution=60&limit=50&start_time=0&end_time=1621200227'
 ```

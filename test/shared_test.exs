@@ -4,10 +4,10 @@ defmodule MarketClientTest.Shared do
 
   import MarketClient.Shared
 
-  test "is_vendor_module/1" do
-    assert is_vendor_module(MarketClient.Vendor.FtxUs) == true
-    assert is_vendor_module(MarketClient.Shared) == false
-    assert is_vendor_module(Some.Foreign.Module) == false
+  test "is_broker_module/1" do
+    assert is_broker_module(MarketClient.Broker.FtxUs) == true
+    assert is_broker_module(MarketClient.Shared) == false
+    assert is_broker_module(Some.Foreign.Module) == false
   end
 
   test "as_list/1" do

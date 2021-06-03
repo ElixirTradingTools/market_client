@@ -2,9 +2,9 @@ defmodule MarketClient.Resource do
   use TypedStruct
 
   typedstruct do
-    field :vendor, tuple, enforce: true
-    field :asset_id, tuple, enforce: true
+    field :broker, {atom, keyword}, enforce: true
+    field :asset_id, {atom, atom, binary | {atom, atom}}, enforce: true
     field :listener, function, enforce: true
-    field :options, map | nil
+    field :options, keyword
   end
 end

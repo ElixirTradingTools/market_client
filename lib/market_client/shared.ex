@@ -1,13 +1,13 @@
 defmodule MarketClient.Shared do
-  @spec is_vendor_module(module) :: boolean
+  @spec is_broker_module(module) :: boolean
   @spec as_list(any) :: list
   @spec a2s_upcased(atom) :: binary
   @spec a2s_downcased(atom) :: binary
   @spec remove_whitespace(binary) :: binary
   @spec unix_now(:ms | :sec, none() | binary) :: integer
 
-  def is_vendor_module(module) do
-    [Module.split(MarketClient.Vendor), Module.split(module)]
+  def is_broker_module(module) do
+    [Module.split(MarketClient.Broker), Module.split(module)]
     |> Enum.reduce(&List.starts_with?/2)
   end
 

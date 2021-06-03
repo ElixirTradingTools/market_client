@@ -2,7 +2,7 @@ defmodule MarketClient.Transport.Ws do
   @moduledoc """
   This is the base layer for all WebSocket connections in MarketClient.
   `MarketClient.Behaviors.WsApi` implements the behavior and
-  overridable functions used in every vendor module which uses
+  overridable functions used in every broker module which uses
   WebSocket communication.
   """
 
@@ -15,7 +15,7 @@ defmodule MarketClient.Transport.Ws do
   @spec send_json(binary, WebSockex.Conn.t()) :: :ok | {:error, any}
 
   def start_link(res = %Resource{}, debug \\ nil) do
-    mod = MarketClient.get_vendor_module(res)
+    mod = MarketClient.get_broker_module(res)
     url = mod.ws_url(res)
     via = mod.ws_via_tuple(res)
 
