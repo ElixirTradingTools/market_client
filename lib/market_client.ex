@@ -13,11 +13,13 @@ defmodule MarketClient do
 
   @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
 
+  @type url :: binary
   @type broker_name :: :binance | :binance_us | :coinbase | :polygon | :oanda | :ftx_us | :ftx
-  @type via_tuple :: {:via, module, {module, any}}
+  @type via_tuple :: {:via, module, any}
   @type asset_id :: {atom, atom, binary | {atom, atom}}
   @type broker_opts :: [{atom, binary}]
   @type http_headers :: [{binary, binary}]
+  @type http_conn_attrs :: {url, http_method, http_headers, function}
   @type http_method ::
           :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
 
@@ -71,12 +73,14 @@ defmodule MarketClient do
     :ws_stop,
     :ws_asset_id,
     :ws_url,
+    :ws_via_tuple,
     :http_start,
     :http_stop,
     :http_fetch,
     :http_url,
     :http_method,
     :http_headers,
+    :http_via_tuple,
     :http_query_params,
     :ws_subscribe,
     :ws_unsubscribe

@@ -9,12 +9,19 @@ defmodule MarketClient.Behaviors.HttpApi do
   alias MarketClient.Resource
 
   @optional_callbacks http_asset_id: 1,
+                      http_headers: 1,
+                      http_request: 1,
+                      http_method: 1,
+                      http_start: 1,
+                      http_fetch: 1,
                       http_url: 1
-  @callback http_url(Resource.t()) :: binary
-  @callback http_request(Resource.t()) :: {:ok, Finch.Response.t()} | {:error, Mint.Types.error()}
   @callback http_asset_id(MarketClient.asset_id()) :: binary
-  @callback http_method(Resource.t()) :: MarketClient.http_method()
   @callback http_headers(Resource.t()) :: MarketClient.http_headers()
+  @callback http_request(Resource.t()) :: any
+  @callback http_method(Resource.t()) :: MarketClient.http_method()
+  @callback http_start(Resource.t()) :: :ok
+  @callback http_fetch(MarketClient.http_conn_attrs()) :: nil
+  @callback http_url(Resource.t()) :: binary
 
   defmacro __using__([]) do
     alias MarketClient.Shared
@@ -33,29 +40,43 @@ defmodule MarketClient.Behaviors.HttpApi do
 
       @spec http_request(Resource.t(), :fetch | :stream) ::
               {:ok, Finch.Response.t()} | {:error, Mint.Types.error()}
-      @spec get_url_method_headers(Resource.t()) ::
-              {binary, MarketClient.http_method(), MarketClient.http_headers()}
+      @spec get_url_method_headers(Resource.t()) :: MarketClient.http_conn_attrs()
+      @spec http_start(Resource.t()) :: :ok
+      @spec http_stop(Resource.t()) :: :ok
+      @spec http_fetch(MarketClient.http_conn_attrs()) :: nil
+      @spec http_asset_id(MarketClient.asset_id()) :: binary
+      @spec http_via_tuple(Resource.t()) :: MarketClient.via_tuple()
+
+      def http_via_tuple(res = %Resource{}) do
+        {:via, Registry, {MarketClient.Registry, MarketClient.pid_tuple(res, :http)}}
+      end
 
       def http_start(res = %Resource{}) do
+        DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {__MODULE__, [res]})
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {Finch, name: __MODULE__})
+        res |> http_via_tuple() |> GenServer.cast(:start)
+      end
 
-        res
-        |> get_url_method_headers()
-        |> Http.fetch(__MODULE__, res.listener)
+      def http_stop(res = %Resource{}) do
+        via = http_via_tuple(res)
+        GenServer.cast(via, :stop)
+        GenServer.stop(via, :normal)
+      end
+
+      def http_fetch({url, method, headers, callback}) do
+        Http.fetch({url, method, headers, callback}, __MODULE__)
       end
 
       def http_request(res = %Resource{}, type \\ :fetch) do
-        apply(Http, type, [get_url_method_headers(res), res.listener])
+        apply(Http, type, [get_url_method_headers(res)])
       end
 
-      def http_asset_id(asset_id), do: MarketClient.default_asset_id(asset_id)
+      def http_asset_id(asset_id) do
+        MarketClient.default_asset_id(asset_id)
+      end
 
-      defp get_url_method_headers(res) do
-        {
-          res |> http_url(),
-          res |> http_method(),
-          res |> http_headers()
-        }
+      def get_url_method_headers(res = %Resource{}) do
+        {http_url(res), http_method(res), http_headers(res), res.listener}
       end
 
       defoverridable http_request: 1,

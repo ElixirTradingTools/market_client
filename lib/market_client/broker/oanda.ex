@@ -8,24 +8,6 @@ defmodule MarketClient.Broker.Oanda do
   use HttpApi
   use GenServer
 
-  def start_link(res = %Resource{}), do: GenServer.start_link(__MODULE__, {nil, res})
-  @impl true
-  def init({nil, res = %Resource{}}), do: {:ok, {nil, res}}
-  @impl true
-  def handle_info(:step, {delay, res}), do: step(delay, res)
-  @impl true
-  def handle_cast(:start, {nil, res}), do: step(34, res)
-  @impl true
-  def handle_cast(:stop, {_, res}), do: step(nil, res)
-
-  defp step(nil, res), do: {:noreply, {nil, res}}
-
-  defp step(delay, res) when is_integer(delay) and delay > 0 do
-    http_start(res)
-    Process.send_after(self(), :step, delay)
-    {:noreply, {delay, res}}
-  end
-
   @ohlc_types [
     :ohlc_1second,
     :ohlc_10second,
@@ -52,8 +34,70 @@ defmodule MarketClient.Broker.Oanda do
     :ohlc_1month
   ]
 
+  @type state_map :: %{
+          polling_interval: nil | integer,
+          resource: Resource.t(),
+          method: MarketClient.http_method(),
+          headers: MarketClient.http_headers(),
+          callback: fun
+        }
   @spec get_path(MarketClient.asset_id(), any) :: binary
   @spec get_path_params(Resource.t()) :: binary
+  @spec get_channel(MarketClient.asset_id() | atom) :: binary
+  @spec get_time_delta(MarketClient.asset_id() | atom) :: integer
+  @spec poll(state_map) :: {:noreply, state_map}
+  @spec init(Resource.t()) :: {:ok, state_map}
+
+  ### HTTP Polling Worker ###
+
+  def start_link([res = %Resource{}]) do
+    GenServer.start_link(__MODULE__, res, name: http_via_tuple(res))
+  end
+
+  @impl true
+  def init(res = %Resource{}) do
+    {_, method, headers, callback} = get_url_method_headers(res)
+
+    {:ok,
+     %{
+       polling_interval: nil,
+       resource: res,
+       method: method,
+       headers: headers,
+       callback: callback
+     }}
+  end
+
+  @impl true
+  def handle_info(:poll, state), do: poll(state)
+
+  @impl true
+  def handle_cast(:start, %{polling_interval: nil, resource: res} = state) do
+    with {:forex, :full_tick, pair} = res.asset_id do
+      res
+      |> Map.put(:asset_id, {:forex, :first_tick, pair})
+      |> get_url_method_headers()
+      |> http_fetch()
+    end
+
+    state
+    |> Map.put(:polling_interval, get_time_delta(:full_tick))
+    |> poll()
+  end
+
+  @impl true
+  def handle_cast(:stop, state), do: {:stop, :normal, Map.put(state, :polling_interval, nil)}
+
+  defp poll(%{polling_interval: i, resource: r, method: m, headers: h, callback: f} = state) do
+    if is_integer(i) and i > 0 do
+      {http_url(r), m, h, f} |> http_fetch()
+      Process.send_after(self(), :poll, i)
+    end
+
+    {:noreply, state}
+  end
+
+  ### HTTP API Overrides ###
 
   @impl HttpApi
   def http_url(res = %Resource{broker: {:oanda, broker_opts}}) do
@@ -98,7 +142,7 @@ defmodule MarketClient.Broker.Oanda do
   @impl HttpApi
   def http_method(_), do: :get
 
-  defp get_path({:forex, :full_tick, _}, account_id) do
+  defp get_path({:forex, data_type, _}, account_id) when data_type in [:full_tick, :first_tick] do
     "v3/accounts/#{account_id}/pricing"
   end
 
@@ -107,49 +151,86 @@ defmodule MarketClient.Broker.Oanda do
   end
 
   defp get_path_params(%Resource{asset_id: asset_id}) do
-    params =
-      case asset_id do
-        {:forex, :full_tick, _} ->
-          [
-            "instruments=#{http_asset_id(asset_id)}",
-            "includeUnitsAvailable=false",
-            "since=#{DateTime.to_unix(DateTime.utc_now(), :second) - 1}"
-          ]
+    case asset_id do
+      {:forex, dt, _} when dt in [:first_tick, :full_tick] ->
+        [
+          "instruments=#{http_asset_id(asset_id)}",
+          "includeUnitsAvailable=false",
+          "since=#{DateTime.to_unix(DateTime.utc_now(), :second) - get_time_delta(dt)}"
+        ]
 
-        {:forex, data_type, _} when data_type in @ohlc_types ->
-          [
-            "granularity=#{get_channel(asset_id)}",
-            "instruments=#{http_asset_id(asset_id)}",
-            "includeUnitsAvailable=false",
-            "since=#{DateTime.to_unix(DateTime.utc_now(), :second) - 60}"
-          ]
-      end
-
-    params |> Enum.join("&")
+      {:forex, dt, _} when dt in @ohlc_types ->
+        [
+          "granularity=#{get_channel(asset_id)}",
+          "instruments=#{http_asset_id(asset_id)}",
+          "includeUnitsAvailable=false",
+          "since=#{DateTime.to_unix(DateTime.utc_now(), :second) - 60}"
+        ]
+    end
+    |> Enum.join("&")
   end
 
-  def get_channel({:forex, :full_tick, _}), do: raise(":full_tick is not a supported candle size")
-  def get_channel({:forex, :ohlc_1second, _}), do: "S5"
-  def get_channel({:forex, :ohlc_10second, _}), do: "S10"
-  def get_channel({:forex, :ohlc_15second, _}), do: "S15"
-  def get_channel({:forex, :ohlc_30second, _}), do: "S30"
-  def get_channel({:forex, :ohlc_1minute, _}), do: "M1"
-  def get_channel({:forex, :ohlc_2minute, _}), do: "M2"
-  def get_channel({:forex, :ohlc_3minute, _}), do: "M3"
-  def get_channel({:forex, :ohlc_4minute, _}), do: "M4"
-  def get_channel({:forex, :ohlc_5minute, _}), do: "M5"
-  def get_channel({:forex, :ohlc_10minute, _}), do: "M10"
-  def get_channel({:forex, :ohlc_15minute, _}), do: "M15"
-  def get_channel({:forex, :ohlc_30minute, _}), do: "M30"
-  def get_channel({:forex, :ohlc_1hour, _}), do: "H1"
-  def get_channel({:forex, :ohlc_2hour, _}), do: "H2"
-  def get_channel({:forex, :ohlc_3hour, _}), do: "H3"
-  def get_channel({:forex, :ohlc_4hour, _}), do: "H4"
-  def get_channel({:forex, :ohlc_6hour, _}), do: "H6"
-  def get_channel({:forex, :ohlc_8hour, _}), do: "H8"
-  def get_channel({:forex, :ohlc_12hour, _}), do: "H12"
-  def get_channel({:forex, :ohlc_1day, _}), do: "D"
-  def get_channel({:forex, :ohlc_3day, _}), do: "D"
-  def get_channel({:forex, :ohlc_1week, _}), do: "W"
-  def get_channel({:forex, :ohlc_1month, _}), do: "M"
+  def get_channel({:forex, dt, _}), do: get_channel(dt)
+
+  def get_channel(dt) when is_atom(dt) do
+    case dt do
+      :full_tick -> raise(":full_tick is not a supported candle size")
+      :first_tick -> raise(":first_tick is not a supported candle size")
+      :ohlc_1second -> "S5"
+      :ohlc_10second -> "S10"
+      :ohlc_15second -> "S15"
+      :ohlc_30second -> "S30"
+      :ohlc_1minute -> "M1"
+      :ohlc_2minute -> "M2"
+      :ohlc_3minute -> "M3"
+      :ohlc_4minute -> "M4"
+      :ohlc_5minute -> "M5"
+      :ohlc_10minute -> "M10"
+      :ohlc_15minute -> "M15"
+      :ohlc_30minute -> "M30"
+      :ohlc_1hour -> "H1"
+      :ohlc_2hour -> "H2"
+      :ohlc_3hour -> "H3"
+      :ohlc_4hour -> "H4"
+      :ohlc_6hour -> "H6"
+      :ohlc_8hour -> "H8"
+      :ohlc_12hour -> "H12"
+      :ohlc_1day -> "D"
+      :ohlc_3day -> "D"
+      :ohlc_1week -> "W"
+      :ohlc_1month -> "M"
+    end
+  end
+
+  def get_time_delta({:forex, dt, _}), do: get_time_delta(dt)
+
+  def get_time_delta(dt) when is_atom(dt) do
+    case dt do
+      :full_tick -> 34
+      :first_tick -> 60 * 60 * 1000
+      :ohlc_1second -> 1000
+      :ohlc_10second -> 10 * 1000
+      :ohlc_15second -> 15 * 1000
+      :ohlc_30second -> 30 * 1000
+      :ohlc_1minute -> 60 * 1000
+      :ohlc_2minute -> 2 * 60 * 1000
+      :ohlc_3minute -> 3 * 60 * 1000
+      :ohlc_4minute -> 4 * 60 * 1000
+      :ohlc_5minute -> 5 * 60 * 1000
+      :ohlc_10minute -> 10 * 60 * 1000
+      :ohlc_15minute -> 15 * 60 * 1000
+      :ohlc_30minute -> 30 * 60 * 1000
+      :ohlc_1hour -> 60 * 60 * 1000
+      :ohlc_2hour -> 2 * 60 * 60 * 1000
+      :ohlc_3hour -> 3 * 60 * 60 * 1000
+      :ohlc_4hour -> 4 * 60 * 60 * 1000
+      :ohlc_6hour -> 6 * 60 * 60 * 1000
+      :ohlc_8hour -> 8 * 60 * 60 * 1000
+      :ohlc_12hour -> 12 * 60 * 60 * 1000
+      :ohlc_1day -> 24 * 60 * 60 * 1000
+      :ohlc_3day -> 3 * 24 * 60 * 60 * 1000
+      :ohlc_1week -> 7 * 24 * 60 * 60 * 1000
+      :ohlc_1month -> trunc(365 * 24 * 60 * 60 * 1000 / 12)
+    end
+  end
 end

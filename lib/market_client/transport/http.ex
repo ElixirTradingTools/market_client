@@ -3,28 +3,24 @@ defmodule MarketClient.Transport.Http do
   All general HTTP connection logic lives here.
   """
 
-  @spec fetch({binary, MarketClient.http_method(), MarketClient.http_headers()}, module, function) ::
-          nil
-
-  @spec stream({binary, MarketClient.http_method(), MarketClient.http_headers()}, function) ::
+  @spec fetch(MarketClient.http_conn_attrs(), module) :: any
+  @spec stream(MarketClient.http_conn_attrs(), module) ::
           {:ok, Finch.Response.t()}
           | {:error, Mint.Types.error()}
 
-  def fetch({url, method, headers}, module, callback) do
+  def fetch({url, method, headers, callback}, module) do
     method
     |> Finch.build(url, headers)
     |> Finch.request(module)
     |> case do
-      {:ok, %Finch.Response{body: str}} -> apply(callback, [{:ok, str}])
+      {:ok, %Finch.Response{body: str}} -> apply(callback, [{:message, str}])
       {:error, error} -> apply(callback, [{:error, error}])
     end
-
-    nil
   end
 
-  def stream({url, method, headers}, callback) do
+  def stream({url, method, headers, callback}, module) do
     method
     |> Finch.build(url, headers)
-    |> Finch.stream(MarketClient.Registry, nil, callback)
+    |> Finch.stream(module, nil, callback)
   end
 end
