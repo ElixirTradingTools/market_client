@@ -6,6 +6,25 @@ defmodule MarketClient.Broker.Oanda do
   }
 
   use HttpApi
+  use GenServer
+
+  def start_link(res = %Resource{}), do: GenServer.start_link(__MODULE__, {nil, res})
+  @impl true
+  def init({nil, res = %Resource{}}), do: {:ok, {nil, res}}
+  @impl true
+  def handle_info(:step, {delay, res}), do: step(delay, res)
+  @impl true
+  def handle_cast(:start, {nil, res}), do: step(34, res)
+  @impl true
+  def handle_cast(:stop, {_, res}), do: step(nil, res)
+
+  defp step(nil, res), do: {:noreply, {nil, res}}
+
+  defp step(delay, res) when is_integer(delay) and delay > 0 do
+    http_start(res)
+    Process.send_after(self(), :step, delay)
+    {:noreply, {delay, res}}
+  end
 
   @ohlc_types [
     :ohlc_1second,
