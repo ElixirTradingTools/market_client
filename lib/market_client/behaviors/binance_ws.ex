@@ -1,9 +1,9 @@
-defmodule MarketClient.Behaviors.Binance do
+defmodule MarketClient.Behaviors.BinanceWs do
   defmacro __using__([tld]) when tld in [:us, :com] do
     alias MarketClient.Shared
 
     unless Shared.is_broker_module(__CALLER__.module) do
-      raise "MarketClient.Behaviors.Binance is not a public module"
+      raise "MarketClient.Behaviors.BinanceWs is not a public module"
     end
 
     broker_name = if(tld == :us, do: :binance_us, else: :binance)
@@ -17,6 +17,9 @@ defmodule MarketClient.Behaviors.Binance do
       use WsApi
 
       @spec get_start_stop_json_payload(MarketClient.Resource.t(), binary) :: binary
+      @spec start(MarketClient.Resource.t()) :: :ok
+
+      def start(res = %MarketClient.Resource{}), do: ws_start(res)
 
       @impl WsApi
       def ws_url(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
@@ -43,7 +46,7 @@ defmodule MarketClient.Behaviors.Binance do
         ~s({"id":1,"method":"#{method}","params":["#{params}"]})
       end
 
-      def get_channel({:crypto, :full_tick, _}), do: "@bookTicker"
+      def get_channel({:crypto, :quotes, _}), do: "@bookTicker"
       def get_channel({:crypto, :ohlc_1minute, _}), do: "@kline_1m"
       def get_channel({:crypto, :ohlc_3minute, _}), do: "@kline_3m"
       def get_channel({:crypto, :ohlc_5minute, _}), do: "@kline_5m"

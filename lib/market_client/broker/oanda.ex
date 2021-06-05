@@ -23,6 +23,9 @@ defmodule MarketClient.Broker.Oanda do
   @spec get_ms_delta(MarketClient.asset_id() | atom) :: integer
   @spec poll(state_map) :: {:noreply, state_map}
   @spec init(Resource.t()) :: {:ok, state_map}
+  @spec start(Resource.t()) :: :ok
+
+  def start(res = %Resource{}), do: http_start(res)
 
   ### HTTP Polling Worker ###
 
@@ -49,7 +52,7 @@ defmodule MarketClient.Broker.Oanda do
 
   @impl true
   def handle_cast(:start, %{polling_interval: nil, resource: res} = state) do
-    with {:forex, :full_tick, pair} = res.asset_id do
+    with {:forex, :quotes, pair} = res.asset_id do
       res
       |> Map.put(:asset_id, {:forex, :first_tick, pair})
       |> get_url_method_headers()
@@ -57,7 +60,7 @@ defmodule MarketClient.Broker.Oanda do
     end
 
     state
-    |> Map.put(:polling_interval, get_ms_delta(:full_tick))
+    |> Map.put(:polling_interval, get_ms_delta(:quotes))
     |> poll()
   end
 
@@ -109,7 +112,7 @@ defmodule MarketClient.Broker.Oanda do
       raise "invalid :key received with broker options"
     else
       case data_type do
-        :full_tick -> [{"authorization", "bearer #{key}"}, {"connection", "keep-alive"}]
+        :quotes -> [{"authorization", "bearer #{key}"}, {"connection", "keep-alive"}]
         _ -> [{"authorization", "bearer #{key}"}]
       end
     end
@@ -118,7 +121,7 @@ defmodule MarketClient.Broker.Oanda do
   @impl HttpApi
   def http_method(_), do: :get
 
-  defp get_path({:forex, data_type, _}, account_id) when data_type in [:full_tick, :first_tick] do
+  defp get_path({:forex, data_type, _}, account_id) when data_type in [:quotes, :first_tick] do
     "v3/accounts/#{account_id}/pricing"
   end
 
@@ -128,7 +131,7 @@ defmodule MarketClient.Broker.Oanda do
 
   defp get_path_params(%Resource{asset_id: asset_id}) do
     case asset_id do
-      {:forex, dt, _} when dt in [:first_tick, :full_tick] ->
+      {:forex, dt, _} when dt in [:first_tick, :quotes] ->
         [
           "instruments=#{http_asset_id(asset_id)}",
           "includeUnitsAvailable=false",
@@ -150,7 +153,7 @@ defmodule MarketClient.Broker.Oanda do
 
   def get_channel(dt) when is_atom(dt) do
     case dt do
-      :full_tick -> raise(":full_tick is not a supported candle size")
+      :quotes -> raise(":quotes is not a supported candle size")
       :first_tick -> raise(":first_tick is not a supported candle size")
       :ohlc_1second -> "S5"
       :ohlc_10second -> "S10"
@@ -182,7 +185,7 @@ defmodule MarketClient.Broker.Oanda do
 
   def get_ms_delta(dt) when is_atom(dt) do
     case dt do
-      :full_tick -> 34
+      :quotes -> 34
       :first_tick -> 60 * 60 * 1000
       :ohlc_1second -> 1000
       :ohlc_10second -> 10 * 1000

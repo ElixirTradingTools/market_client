@@ -41,7 +41,7 @@ defmodule MarketClient.Behaviors.FtxWs do
 
       def get_channel(dt) when is_atom(dt) do
         case dt do
-          :full_tick -> "ticker"
+          :quotes -> "ticker"
           :trades -> "trades"
           dt when dt in @ohlc_types -> raise "OHLC data not supported"
         end

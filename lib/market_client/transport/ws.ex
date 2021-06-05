@@ -16,7 +16,7 @@ defmodule MarketClient.Transport.Ws do
   @spec send_json(binary, WebSockex.Conn.t()) :: :ok | {:error, any}
 
   def start_link(res = %Resource{}, opts \\ []) do
-    mod = MarketClient.get_broker_module(res)
+    mod = MarketClient.get_broker_module(res, :ws)
     url = mod.ws_url(res)
     via = mod.ws_via_tuple(res)
 
@@ -42,11 +42,11 @@ defmodule MarketClient.Transport.Ws do
   end
 
   def send_json(json_msgs, client) when is_list(json_msgs) do
-    cond do
-      is_pid(client) -> loop_send_json(json_msgs, client)
-      client == %WebSockex.Conn{} -> loop_send_json(json_msgs, client)
-      is_tuple(client) and elem(client, 0) == :via -> loop_send_json(json_msgs, client)
-      true -> raise "send_json/2 received invalid client type"
+    case client do
+      c when is_pid(c) -> loop_send_json(json_msgs, client)
+      %WebSockex.Conn{} -> loop_send_json(json_msgs, client)
+      {:via, _, _} -> loop_send_json(json_msgs, client)
+      _ -> raise "send_json/2 received invalid type for client arg"
     end
   end
 

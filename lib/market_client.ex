@@ -11,6 +11,26 @@ defmodule MarketClient do
     ftx: MarketClient.Broker.Ftx
   ]
 
+  @broker_modules_ws [
+    binance: MarketClient.Broker.Binance.Ws,
+    binance_us: MarketClient.Broker.BinanceUs.Ws,
+    coinbase: MarketClient.Broker.Coinbase.Ws,
+    polygon: MarketClient.Broker.Polygon.Ws,
+    oanda: MarketClient.Broker.Oanda.Ws,
+    ftx_us: MarketClient.Broker.FtxUs.Ws,
+    ftx: MarketClient.Broker.Ftx.Ws
+  ]
+
+  @broker_modules_http [
+    binance: MarketClient.Broker.Binance.Http,
+    binance_us: MarketClient.Broker.BinanceUs.Http,
+    coinbase: MarketClient.Broker.Coinbase.Http,
+    polygon: MarketClient.Broker.Polygon.Http,
+    oanda: MarketClient.Broker.Oanda.Http,
+    ftx_us: MarketClient.Broker.FtxUs.Http,
+    ftx: MarketClient.Broker.Ftx.Http
+  ]
+
   @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
 
   @type url :: binary
@@ -82,8 +102,12 @@ defmodule MarketClient do
     {transport_type, broker, asset_id}
   end
 
-  def get_broker_module(%Resource{broker: {broker_name, _}}) do
-    Keyword.get(@broker_modules, broker_name, nil)
+  def get_broker_module(%Resource{broker: {broker_name, _}}, transport \\ nil) do
+    case transport do
+      nil -> Keyword.get(@broker_modules, broker_name, nil)
+      :http -> Keyword.get(@broker_modules_http, broker_name, nil)
+      :ws -> Keyword.get(@broker_modules_ws, broker_name, nil)
+    end
   end
 
   def new(broker, asset = {class, data_type, _}, listener, opts \\ [])
@@ -101,21 +125,8 @@ defmodule MarketClient do
 
   [
     :start_link,
-    :ws_start,
-    :ws_stop,
-    :ws_asset_id,
-    :ws_url,
-    :ws_via_tuple,
-    :http_start,
-    :http_stop,
-    :http_fetch,
-    :http_url,
-    :http_method,
-    :http_headers,
-    :http_via_tuple,
-    :http_query_params,
-    :ws_subscribe,
-    :ws_unsubscribe
+    :start,
+    :stop
   ]
   |> Enum.each(fn func_name ->
     def unquote(func_name)(res = %Resource{}) do
@@ -133,6 +144,41 @@ defmodule MarketClient do
       res
       |> get_broker_module()
       |> apply(unquote(func_name), [res, opts])
+    end
+  end)
+
+  [
+    :ws_start,
+    :ws_stop,
+    :ws_asset_id,
+    :ws_url,
+    :ws_via_tuple,
+    :ws_subscribe,
+    :ws_unsubscribe
+  ]
+  |> Enum.each(fn func_name ->
+    def unquote(func_name)(res = %Resource{}) do
+      res
+      |> get_broker_module(:ws)
+      |> apply(unquote(func_name), [res])
+    end
+  end)
+
+  [
+    :http_start,
+    :http_stop,
+    :http_fetch,
+    :http_url,
+    :http_method,
+    :http_headers,
+    :http_via_tuple,
+    :http_query_params
+  ]
+  |> Enum.each(fn func_name ->
+    def unquote(func_name)(res = %Resource{}) do
+      res
+      |> get_broker_module(:http)
+      |> apply(unquote(func_name), [res])
     end
   end)
 

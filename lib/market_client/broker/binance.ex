@@ -1,3 +1,5 @@
 defmodule MarketClient.Broker.Binance do
-  use MarketClient.Behaviors.Binance, [:com]
+  alias MarketClient.Resource
+
+  def start(res = %Resource{}), do: __MODULE__.Ws.ws_start(res)
 end

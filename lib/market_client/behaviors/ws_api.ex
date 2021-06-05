@@ -10,6 +10,7 @@ defmodule MarketClient.Behaviors.WsApi do
 
   @optional_callbacks start_link: 1,
                       handle_ping: 2,
+                      handle_connect: 2,
                       child_spec: 1,
                       ws_via_tuple: 1,
                       ws_start: 1,
@@ -23,9 +24,15 @@ defmodule MarketClient.Behaviors.WsApi do
   @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.ws_socket_state()
   @callback child_spec(Resource.t()) :: map
   @callback ws_via_tuple(Resource.t()) :: MarketClient.via_tuple()
-  @callback ws_start(Resource.t()) :: {:ok, pid}
+  @callback ws_start(Resource.t()) :: :ok
   @callback ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
   @callback ws_asset_id(MarketClient.asset_id()) :: binary
+  @callback handle_connect(WebSockex.Conn.t(), any) :: {:ok, any}
+  @callback handle_frame(WebSockex.frame(), any) ::
+              {:ok, any}
+              | {:reply, WebSockex.frame(), any}
+              | {:close, any}
+              | {:close, WebSockex.close_frame(), any}
 
   defmacro __using__([]) do
     unless Shared.is_broker_module(__CALLER__.module) do
@@ -46,10 +53,15 @@ defmodule MarketClient.Behaviors.WsApi do
 
       @spec child_spec(Resource.t()) :: map
       @spec ws_via_tuple(Resource.t()) :: MarketClient.via_tuple()
-      @spec ws_start(Resource.t()) :: {:ok, pid}
+      @spec ws_start(Resource.t()) :: :ok
       @spec ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
       @spec ws_asset_id(MarketClient.asset_id()) :: binary
       @spec handle_connect(WebSockex.Conn.t(), any) :: {:ok, any}
+      @spec handle_frame(WebSockex.frame(), any) ::
+              {:ok, any}
+              | {:reply, WebSockex.frame(), any}
+              | {:close, any}
+              | {:close, WebSockex.close_frame(), any}
 
       def child_spec(res = %Resource{}) do
         %{
@@ -63,7 +75,8 @@ defmodule MarketClient.Behaviors.WsApi do
       end
 
       def ws_start(res = %Resource{}) do
-        DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, child_spec(res))
+        {:ok, _} = DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, child_spec(res))
+        :ok
       end
 
       def ws_stop(client = %Resource{}), do: client |> ws_via_tuple() |> Ws.close()
@@ -83,7 +96,7 @@ defmodule MarketClient.Behaviors.WsApi do
 
       def handle_frame({type, msg}, state) do
         case type do
-          :text -> state.listener.(msg)
+          :text -> apply(state.listener, [{:ok, msg}])
           _ -> Logger.warn("Unknown frame: #{inspect({type, msg})}")
         end
 
@@ -98,6 +111,7 @@ defmodule MarketClient.Behaviors.WsApi do
       end
 
       defoverridable handle_connect: 2,
+                     handle_frame: 2,
                      ws_asset_id: 1,
                      handle_ping: 2,
                      start_link: 1,
