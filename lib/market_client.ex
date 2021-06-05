@@ -1,78 +1,191 @@
 defmodule MarketClient do
   alias MarketClient.Resource
 
-  @brokers [:coinbase, :polygon, :binance, :oanda]
+  @broker_modules [
+    binance: MarketClient.Broker.Binance,
+    binance_us: MarketClient.Broker.BinanceUs,
+    coinbase: MarketClient.Broker.Coinbase,
+    polygon: MarketClient.Broker.Polygon,
+    oanda: MarketClient.Broker.Oanda,
+    ftx_us: MarketClient.Broker.FtxUs,
+    ftx: MarketClient.Broker.Ftx
+  ]
 
-  def get_broker_module(%Resource{broker: {broker_name, _}}) do
-    case broker_name do
-      :coinbase -> MarketClient.Provider.Coinbase
-      :polygon -> MarketClient.Provider.Polygon
-      :binance -> MarketClient.Provider.Binance
-      :oanda -> MarketClient.Provider.Oanda
+  @broker_modules_ws [
+    binance: MarketClient.Broker.Binance.Ws,
+    binance_us: MarketClient.Broker.BinanceUs.Ws,
+    coinbase: MarketClient.Broker.Coinbase.Ws,
+    polygon: MarketClient.Broker.Polygon.Ws,
+    oanda: MarketClient.Broker.Oanda.Ws,
+    ftx_us: MarketClient.Broker.FtxUs.Ws,
+    ftx: MarketClient.Broker.Ftx.Ws
+  ]
+
+  @broker_modules_http [
+    binance: MarketClient.Broker.Binance.Http,
+    binance_us: MarketClient.Broker.BinanceUs.Http,
+    coinbase: MarketClient.Broker.Coinbase.Http,
+    polygon: MarketClient.Broker.Polygon.Http,
+    oanda: MarketClient.Broker.Oanda.Http,
+    ftx_us: MarketClient.Broker.FtxUs.Http,
+    ftx: MarketClient.Broker.Ftx.Http
+  ]
+
+  @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
+
+  @type url :: binary
+  @type broker_name :: :binance | :binance_us | :coinbase | :polygon | :oanda | :ftx_us | :ftx
+  @type via_tuple :: {:via, module, {module, tuple}}
+  @type asset_id :: {atom, atom, binary | {atom, atom}}
+  @type broker_opts :: [{atom, binary}]
+  @type http_headers :: [{binary, binary}]
+  @type http_conn_attrs :: {url, http_method, http_headers, function}
+  @type http_method ::
+          :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
+  @type http_ok :: {:ok, Finch.Response.t()}
+  @type http_error :: {:error, Mint.Types.error()}
+  @type ws_socket_state :: {:ok | :close, any} | {:reply | :close, any, any}
+
+  @spec pid_tuple(Resource.t(), :ws | :http) :: {:ws | :http, atom, any}
+  @spec get_broker_module(Resource.t()) :: module
+  @spec new(broker_name, asset_id, function) :: Resource.t()
+  @spec new(broker_name, asset_id, function, keyword) :: Resource.t()
+  @spec new({broker_name, broker_opts}, asset_id, function) :: Resource.t()
+  @spec new({broker_name, broker_opts}, asset_id, function, keyword) :: Resource.t()
+  @spec get_resource({broker_name, broker_opts}, asset_id, function, keyword) :: Resource.t()
+  @spec default_asset_id(asset_id) :: binary
+
+  @spec start_link(Resource.t()) :: any
+  @spec start_link(Resource.t(), keyword) :: any
+  @spec ws_start(Resource.t()) :: any
+  @spec ws_stop(Resource.t()) :: any
+  @spec ws_asset_id(Resource.t()) :: any
+  @spec ws_url(Resource.t()) :: any
+  @spec http_start(Resource.t()) :: any
+  @spec http_stop(Resource.t()) :: any
+  @spec http_url(Resource.t()) :: any
+  @spec http_method(Resource.t()) :: any
+  @spec http_headers(Resource.t()) :: any
+  @spec http_query_params(Resource.t()) :: any
+  @spec ws_subscribe(Resource.t()) :: any
+  @spec ws_unsubscribe(Resource.t()) :: any
+
+  def ohlc_types do
+    [
+      :ohlc_1second,
+      :ohlc_10second,
+      :ohlc_15second,
+      :ohlc_30second,
+      :ohlc_1minute,
+      :ohlc_2minute,
+      :ohlc_3minute,
+      :ohlc_4minute,
+      :ohlc_5minute,
+      :ohlc_10minute,
+      :ohlc_15minute,
+      :ohlc_30minute,
+      :ohlc_1hour,
+      :ohlc_2hour,
+      :ohlc_3hour,
+      :ohlc_4hour,
+      :ohlc_6hour,
+      :ohlc_8hour,
+      :ohlc_12hour,
+      :ohlc_1day,
+      :ohlc_3day,
+      :ohlc_1week,
+      :ohlc_1month
+    ]
+  end
+
+  def pid_tuple(%Resource{broker: {broker, _}, asset_id: asset_id}, transport_type) do
+    {transport_type, broker, asset_id}
+  end
+
+  def get_broker_module(%Resource{broker: {broker_name, _}}, transport \\ nil) do
+    case transport do
+      nil -> Keyword.get(@broker_modules, broker_name, nil)
+      :http -> Keyword.get(@broker_modules_http, broker_name, nil)
+      :ws -> Keyword.get(@broker_modules_ws, broker_name, nil)
     end
   end
 
-  def new(broker = {name, _}, asset_id, handler)
-      when is_tuple(asset_id) and is_tuple(handler) and name in @brokers do
-    case handler do
-      {:func, ref} when is_function(ref) ->
-        %Resource{
-          broker: broker,
-          asset_id: asset_id,
-          handler: handler
-        }
-
-      {:file, ref} when is_binary(ref) ->
-        case File.open(ref, [:write]) do
-          {:ok, fh_ref} ->
-            %Resource{
-              broker: broker,
-              asset_id: asset_id,
-              handler: {:file, fh_ref}
-            }
-        end
+  def new(broker, asset = {class, data_type, _}, listener, opts \\ [])
+      when is_atom(class) and is_atom(data_type) and is_function(listener) do
+    case broker do
+      b when b in @brokers -> get_resource({broker, []}, asset, listener, opts)
+      {b, o} when b in @brokers and is_list(o) -> get_resource({b, o}, asset, listener, opts)
+      _ -> raise "MarketClient.new/4 received invalid first argument"
     end
   end
 
-  def start(pid, res = %Resource{}) do
-    res
-    |> get_broker_module()
-    |> apply(:start, [pid, res])
+  defp get_resource(broker, asset_id, listener, opts) when is_function(listener) do
+    %Resource{broker: broker, asset_id: asset_id, listener: listener, options: opts}
   end
 
-  def start(pid, res = %Resource{}, other) do
-    res
-    |> get_broker_module()
-    |> apply(:start, [pid, res, other])
-  end
+  [
+    :start_link,
+    :start,
+    :stop
+  ]
+  |> Enum.each(fn func_name ->
+    def unquote(func_name)(res = %Resource{}) do
+      res
+      |> get_broker_module()
+      |> apply(unquote(func_name), [res])
+    end
+  end)
 
-  def start_link(res = %Resource{}) do
-    res
-    |> get_broker_module()
-    |> apply(:start_link, [res])
-  end
+  [
+    :start_link
+  ]
+  |> Enum.each(fn func_name ->
+    def unquote(func_name)(res = %Resource{}, opts) do
+      res
+      |> get_broker_module()
+      |> apply(unquote(func_name), [res, opts])
+    end
+  end)
 
-  def stop(pid, res = %Resource{}) do
-    res
-    |> get_broker_module()
-    |> apply(:stop, [pid, res])
-  end
+  [
+    :ws_start,
+    :ws_stop,
+    :ws_asset_id,
+    :ws_url,
+    :ws_via_tuple,
+    :ws_subscribe,
+    :ws_unsubscribe
+  ]
+  |> Enum.each(fn func_name ->
+    def unquote(func_name)(res = %Resource{}) do
+      res
+      |> get_broker_module(:ws)
+      |> apply(unquote(func_name), [res])
+    end
+  end)
 
-  def url(res = %Resource{}) do
-    res
-    |> get_broker_module()
-    |> apply(:url, [res])
-  end
+  [
+    :http_start,
+    :http_stop,
+    :http_fetch,
+    :http_url,
+    :http_method,
+    :http_headers,
+    :http_via_tuple,
+    :http_query_params
+  ]
+  |> Enum.each(fn func_name ->
+    def unquote(func_name)(res = %Resource{}) do
+      res
+      |> get_broker_module(:http)
+      |> apply(unquote(func_name), [res])
+    end
+  end)
 
-  def msg_subscribe(res = %Resource{}) do
-    res
-    |> get_broker_module()
-    |> apply(:msg_subscribe, [res])
-  end
-
-  def msg_unsubscribe(res = %Resource{}) do
-    res
-    |> get_broker_module()
-    |> apply(:msg_unsubscribe, [res])
+  def default_asset_id({_, _, asset_name}) do
+    case asset_name do
+      name when is_binary(name) -> name
+      {a, b} -> "#{to_string(a)}/#{to_string(b)}"
+    end
   end
 end

@@ -1,10 +1,13 @@
 # MarketClient
 
 A simple universal client for various brokers and data providers. Currently includes (to various degrees):
+* Coinbase
+* Binance
+* Binance US
+* FTX
+* FTX US
 * Polygon
 * Oanda
-* Binance
-* Coinbase
 
 The project is work-in-progress. Features are being added on an as-needed basis. You are encouraged to
 use this module in your projects and submit merge requests for any features you'd like to add or modify.
@@ -16,28 +19,25 @@ the following to your `mix.ex` dependencies.
 
 ## Example Usage
 ```
-res = MarketClient.new({:coinbase, nil}, {:crypto, {:eth, :usd}}, {:func, &IO.inspect/1})
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+import MarketClient
 
-res = MarketClient.new({:binance, nil}, {:crypto, {:eth, :usdt}}, {:func, &IO.inspect/1})
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+new(:coinbase, {:crypto, :quotes, {:eth, :usd}}, &IO.inspect/1) |> start()
 
-res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:stock, {"MSFT", nil}}, {:func, &IO.inspect/1})
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+new(:ftx, {:crypto, :quotes, {:eth, :usd}}, &IO.inspect/1) |> start()
 
-res = MarketClient.new({:polygon, %{key: "XXXX"}}, {:forex, {:gbp, :aud}}, {:func, &IO.inspect/1})
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+new(:binance, {:crypto, :quotes, {:eth, :usdt}}, &IO.inspect/1) |> start()
 
-res = MarketClient.new({:oanda, %{key: "XXXX", practice: true}}, {:forex, {:gbp, :aud}}, {:func, &IO.inspect/1})
-{:ok, pid} = MarketClient.start_link(res)
-MarketClient.start(pid, res)
-MarketClient.stop(pid, res)
+new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}}, &IO.inspect/1) |> start()
+
+opts = [key: "X"]
+new({:polygon, opts}, {:stock, :quotes, "msft"}, &IO.inspect/1) |> start()
+
+opts = [key: "X"]
+new({:polygon, opts}, {:forex, :quotes, {:gbp, :aud}}, &IO.inspect/1) |> start()
+
+opts = [key: "X"]
+new({:polygon, opts}, {:crypto, :quotes, {:btc, :usd}}, &IO.inspect/1) |> start()
+
+opts = [key: "X", account_id: "X"]
+new({:oanda, opts}, {:forex, :ohlc_1minute, {:aud, :nzd}}, &IO.inspect/1) |> start()
 ```
