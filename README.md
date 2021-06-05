@@ -39,5 +39,8 @@ opts = [key: "X"]
 new({:polygon, opts}, {:crypto, :quotes, {:btc, :usd}}, &IO.inspect/1) |> start()
 
 opts = [key: "X", account_id: "X"]
-new({:oanda, opts}, {:forex, :ohlc_1minute, {:aud, :nzd}}, &IO.inspect/1) |> start()
+new({:oanda, opts}, {:forex, :quotes, {:eur, :usd}}, &IO.inspect/1) |> start()
+
+opts = [key: "X", account_id: "X"]
+new({:oanda, opts}, {:forex, :ohlc_1minute, {:eur, :usd}}, &IO.inspect/1) |> start()
 ```
