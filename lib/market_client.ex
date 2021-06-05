@@ -15,13 +15,16 @@ defmodule MarketClient do
 
   @type url :: binary
   @type broker_name :: :binance | :binance_us | :coinbase | :polygon | :oanda | :ftx_us | :ftx
-  @type via_tuple :: {:via, module, any}
+  @type via_tuple :: {:via, module, {module, tuple}}
   @type asset_id :: {atom, atom, binary | {atom, atom}}
   @type broker_opts :: [{atom, binary}]
   @type http_headers :: [{binary, binary}]
   @type http_conn_attrs :: {url, http_method, http_headers, function}
   @type http_method ::
           :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
+  @type http_ok :: {:ok, Finch.Response.t()}
+  @type http_error :: {:error, Mint.Types.error()}
+  @type ws_socket_state :: {:ok | :close, any} | {:reply | :close, any, any}
 
   @spec pid_tuple(Resource.t(), :ws | :http) :: {:ws | :http, atom, any}
   @spec get_broker_module(Resource.t()) :: module
@@ -33,6 +36,7 @@ defmodule MarketClient do
   @spec default_asset_id(asset_id) :: binary
 
   @spec start_link(Resource.t()) :: any
+  @spec start_link(Resource.t(), keyword) :: any
   @spec ws_start(Resource.t()) :: any
   @spec ws_stop(Resource.t()) :: any
   @spec ws_asset_id(Resource.t()) :: any
@@ -45,6 +49,34 @@ defmodule MarketClient do
   @spec http_query_params(Resource.t()) :: any
   @spec ws_subscribe(Resource.t()) :: any
   @spec ws_unsubscribe(Resource.t()) :: any
+
+  def ohlc_types do
+    [
+      :ohlc_1second,
+      :ohlc_10second,
+      :ohlc_15second,
+      :ohlc_30second,
+      :ohlc_1minute,
+      :ohlc_2minute,
+      :ohlc_3minute,
+      :ohlc_4minute,
+      :ohlc_5minute,
+      :ohlc_10minute,
+      :ohlc_15minute,
+      :ohlc_30minute,
+      :ohlc_1hour,
+      :ohlc_2hour,
+      :ohlc_3hour,
+      :ohlc_4hour,
+      :ohlc_6hour,
+      :ohlc_8hour,
+      :ohlc_12hour,
+      :ohlc_1day,
+      :ohlc_3day,
+      :ohlc_1week,
+      :ohlc_1month
+    ]
+  end
 
   def pid_tuple(%Resource{broker: {broker, _}, asset_id: asset_id}, transport_type) do
     {transport_type, broker, asset_id}
@@ -90,6 +122,17 @@ defmodule MarketClient do
       res
       |> get_broker_module()
       |> apply(unquote(func_name), [res])
+    end
+  end)
+
+  [
+    :start_link
+  ]
+  |> Enum.each(fn func_name ->
+    def unquote(func_name)(res = %Resource{}, opts) do
+      res
+      |> get_broker_module()
+      |> apply(unquote(func_name), [res, opts])
     end
   end)
 

@@ -17,10 +17,10 @@ defmodule MarketClient.Behaviors.WsApi do
                       ws_asset_id: 1
   @callback ws_url(Resource.t()) :: binary
   @callback start_link(Resource.t()) :: {:ok, pid} | {:error, any}
+  @callback start_link(Resource.t(), keyword) :: {:ok, pid} | {:error, any}
   @callback ws_subscribe(Resource.t()) :: binary | list
   @callback ws_unsubscribe(Resource.t()) :: binary | list
-  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) ::
-              {:ok | :close, any} | {:reply | :close, any, any}
+  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.ws_socket_state()
   @callback child_spec(Resource.t()) :: map
   @callback ws_via_tuple(Resource.t()) :: MarketClient.via_tuple()
   @callback ws_start(Resource.t()) :: {:ok, pid}
@@ -42,6 +42,8 @@ defmodule MarketClient.Behaviors.WsApi do
 
       @behaviour MarketClient.Behaviors.WsApi
 
+      @ohlc_types MarketClient.ohlc_types()
+
       @spec child_spec(Resource.t()) :: map
       @spec ws_via_tuple(Resource.t()) :: MarketClient.via_tuple()
       @spec ws_start(Resource.t()) :: {:ok, pid}
@@ -56,25 +58,17 @@ defmodule MarketClient.Behaviors.WsApi do
         }
       end
 
+      def start_link(res = %Resource{}, opts \\ []) do
+        Ws.start_link(res, opts)
+      end
+
       def ws_start(res = %Resource{}) do
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, child_spec(res))
       end
 
-      def ws_stop(client) do
-        case client do
-          %Resource{} -> client |> ws_via_tuple()
-          client when is_pid(client) -> client
-          {:via, _, _} -> client
-        end
-        |> Ws.close()
-      end
-
-      def start_link(res = %Resource{options: opts}) do
-        case opts do
-          %{debug: true} -> Ws.start_link(res, :debug)
-          _ -> Ws.start_link(res)
-        end
-      end
+      def ws_stop(client = %Resource{}), do: client |> ws_via_tuple() |> Ws.close()
+      def ws_stop(client = {:via, _, _}), do: client |> Ws.close()
+      def ws_stop(client) when is_pid(client), do: client |> Ws.close()
 
       def ws_asset_id(asset_id), do: MarketClient.default_asset_id(asset_id)
 

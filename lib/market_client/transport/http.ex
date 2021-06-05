@@ -3,10 +3,10 @@ defmodule MarketClient.Transport.Http do
   All general HTTP connection logic lives here.
   """
 
+  @typep http_ok :: MarketClient.http_ok()
+  @typep http_error :: MarketClient.http_error()
   @spec fetch(MarketClient.http_conn_attrs(), module) :: any
-  @spec stream(MarketClient.http_conn_attrs(), module) ::
-          {:ok, Finch.Response.t()}
-          | {:error, Mint.Types.error()}
+  @spec stream(MarketClient.http_conn_attrs(), module) :: http_ok | http_error
 
   def fetch({url, method, headers, callback}, module) do
     method

@@ -16,7 +16,7 @@ defmodule MarketClient.Behaviors.FtxWs do
 
       use WsApi
 
-      @spec get_channel({atom, atom, any}) :: binary
+      @spec get_channel(atom | {atom, atom, any}) :: binary
 
       @impl WsApi
       def ws_url(%MarketClient.Resource{broker: {unquote(broker_name), _}}) do
@@ -37,8 +37,15 @@ defmodule MarketClient.Behaviors.FtxWs do
         ~s({"op":"unsubscribe","channel":"#{chan}","market":"#{params}"})
       end
 
-      def get_channel({:crypto, :full_tick, _}), do: "ticker"
-      def get_channel({:crypto, :trades, _}), do: "trades"
+      def get_channel({:crypto, dt, _}), do: get_channel(dt)
+
+      def get_channel(dt) when is_atom(dt) do
+        case dt do
+          :full_tick -> "ticker"
+          :trades -> "trades"
+          dt when dt in @ohlc_types -> raise "OHLC data not supported"
+        end
+      end
     end
   end
 end

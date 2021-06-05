@@ -8,31 +8,7 @@ defmodule MarketClient.Broker.Oanda do
   use HttpApi
   use GenServer
 
-  @ohlc_types [
-    :ohlc_1second,
-    :ohlc_10second,
-    :ohlc_15second,
-    :ohlc_30second,
-    :ohlc_1minute,
-    :ohlc_2minute,
-    :ohlc_3minute,
-    :ohlc_4minute,
-    :ohlc_5minute,
-    :ohlc_10minute,
-    :ohlc_15minute,
-    :ohlc_30minute,
-    :ohlc_1hour,
-    :ohlc_2hour,
-    :ohlc_3hour,
-    :ohlc_4hour,
-    :ohlc_6hour,
-    :ohlc_8hour,
-    :ohlc_12hour,
-    :ohlc_1day,
-    :ohlc_3day,
-    :ohlc_1week,
-    :ohlc_1month
-  ]
+  @ohlc_types MarketClient.ohlc_types()
 
   @type state_map :: %{
           polling_interval: nil | integer,
@@ -44,7 +20,7 @@ defmodule MarketClient.Broker.Oanda do
   @spec get_path(MarketClient.asset_id(), any) :: binary
   @spec get_path_params(Resource.t()) :: binary
   @spec get_channel(MarketClient.asset_id() | atom) :: binary
-  @spec get_time_delta(MarketClient.asset_id() | atom) :: integer
+  @spec get_ms_delta(MarketClient.asset_id() | atom) :: integer
   @spec poll(state_map) :: {:noreply, state_map}
   @spec init(Resource.t()) :: {:ok, state_map}
 
@@ -81,7 +57,7 @@ defmodule MarketClient.Broker.Oanda do
     end
 
     state
-    |> Map.put(:polling_interval, get_time_delta(:full_tick))
+    |> Map.put(:polling_interval, get_ms_delta(:full_tick))
     |> poll()
   end
 
@@ -156,7 +132,7 @@ defmodule MarketClient.Broker.Oanda do
         [
           "instruments=#{http_asset_id(asset_id)}",
           "includeUnitsAvailable=false",
-          "since=#{DateTime.to_unix(DateTime.utc_now(), :second) - get_time_delta(dt)}"
+          "since=#{DateTime.to_unix(DateTime.utc_now(), :second) - get_ms_delta(dt)}"
         ]
 
       {:forex, dt, _} when dt in @ohlc_types ->
@@ -202,9 +178,9 @@ defmodule MarketClient.Broker.Oanda do
     end
   end
 
-  def get_time_delta({:forex, dt, _}), do: get_time_delta(dt)
+  def get_ms_delta({:forex, dt, _}), do: get_ms_delta(dt)
 
-  def get_time_delta(dt) when is_atom(dt) do
+  def get_ms_delta(dt) when is_atom(dt) do
     case dt do
       :full_tick -> 34
       :first_tick -> 60 * 60 * 1000

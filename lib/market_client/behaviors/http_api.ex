@@ -38,8 +38,10 @@ defmodule MarketClient.Behaviors.HttpApi do
 
       @behaviour MarketClient.Behaviors.HttpApi
 
-      @spec http_request(Resource.t(), :fetch | :stream) ::
-              {:ok, Finch.Response.t()} | {:error, Mint.Types.error()}
+      @typep http_ok :: MarketClient.http_ok()
+      @typep http_error :: MarketClient.http_error()
+
+      @spec http_request(Resource.t(), :fetch | :stream) :: http_ok | http_error
       @spec get_url_method_headers(Resource.t()) :: MarketClient.http_conn_attrs()
       @spec http_start(Resource.t()) :: :ok
       @spec http_stop(Resource.t()) :: :ok
@@ -58,9 +60,7 @@ defmodule MarketClient.Behaviors.HttpApi do
       end
 
       def http_stop(res = %Resource{}) do
-        via = http_via_tuple(res)
-        GenServer.cast(via, :stop)
-        GenServer.stop(via, :normal)
+        res |> http_via_tuple() |> GenServer.cast(:stop)
       end
 
       def http_fetch({url, method, headers, callback}) do

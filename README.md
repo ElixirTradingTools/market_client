@@ -19,24 +19,18 @@ the following to your `mix.ex` dependencies.
 
 ## Example Usage
 ```
-MarketClient.new(:coinbase, {:crypto, :full_tick, {:eth, :usd}}, &IO.inspect/1)
-|> MarketClient.ws_start()
+import MarketClient
 
-MarketClient.new(:binance, {:crypto, :full_tick, {:eth, :usdt}}, &IO.inspect/1)
-|> MarketClient.ws_start()
+new(:coinbase, {:crypto, :full_tick, {:eth, :usd}}, &IO.inspect/1) |> ws_start()
 
-MarketClient.new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}}, &IO.inspect/1)
-|> MarketClient.ws_start()
+new(:binance, {:crypto, :full_tick, {:eth, :usdt}}, &IO.inspect/1) |> ws_start()
 
-opts = [key: "X"]
-MarketClient.new({:polygon, opts}, {:stock, :full_tick, "msft"}, &IO.inspect/1)
-|> MarketClient.ws_start()
+new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}}, &IO.inspect/1) |> ws_start()
 
-opts = [key: "X"]
-MarketClient.new({:polygon, opts}, {:forex, :full_tick, {:gbp, :aud}}, &IO.inspect/1)
-|> MarketClient.ws_start()
+new({:polygon, [key: "X"]}, {:stock, :full_tick, "msft"}, &IO.inspect/1) |> ws_start()
+
+new({:polygon, [key: "X"]}, {:forex, :full_tick, {:gbp, :aud}}, &IO.inspect/1) |> ws_start()
 
 opts = [key: "X", account_id: "X"]
-MarketClient.new({:oanda, opts}, {:forex, :ohlc_1minute, {:aud, :nzd}}, &IO.inspect/1)
-|> MarketClient.start()
+new({:oanda, opts}, {:forex, :ohlc_1minute, {:aud, :nzd}}, &IO.inspect/1) |> start()
 ```
