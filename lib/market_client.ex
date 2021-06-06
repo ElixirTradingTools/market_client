@@ -49,8 +49,32 @@ defmodule MarketClient do
           :get | :post | :put | :delete | :patch | :head | :options | :trace | :connect
   @type http_ok :: {:ok, Finch.Response.t()}
   @type http_error :: {:error, Mint.Types.error()}
-  @type ws_socket_state :: {:ok | :close, any} | {:reply | :close, any, any}
+  @type socket_state :: {:ok | :close, any} | {:reply | :close, any, any}
   @type transport_type :: :ws | :http
+  @type ohlc_type ::
+          :ohlc_1second
+          | :ohlc_10second
+          | :ohlc_15second
+          | :ohlc_30second
+          | :ohlc_1minute
+          | :ohlc_2minute
+          | :ohlc_3minute
+          | :ohlc_4minute
+          | :ohlc_5minute
+          | :ohlc_10minute
+          | :ohlc_15minute
+          | :ohlc_30minute
+          | :ohlc_1hour
+          | :ohlc_2hour
+          | :ohlc_3hour
+          | :ohlc_4hour
+          | :ohlc_6hour
+          | :ohlc_8hour
+          | :ohlc_12hour
+          | :ohlc_1day
+          | :ohlc_3day
+          | :ohlc_1week
+          | :ohlc_1month
 
   @spec res_id(Resource.t(), :ws | :http) :: {:ws | :http, atom, any}
   @spec get_broker_module(Resource.t()) :: module
@@ -60,6 +84,7 @@ defmodule MarketClient do
   @spec new({broker_name, broker_opts}, asset_id, function, keyword) :: Resource.t()
   @spec get_resource({broker_name, broker_opts}, asset_id, function, keyword) :: Resource.t()
   @spec default_asset_id(asset_id) :: binary
+  @spec ohlc_types() :: [ohlc_type]
 
   @spec get_via(Resource.t(), transport_type) :: via_tuple
   @spec start_link(Resource.t()) :: any

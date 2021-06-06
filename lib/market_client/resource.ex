@@ -1,6 +1,5 @@
 defmodule MarketClient.Resource do
-  @moduledoc false
-  @doc """
+  @moduledoc """
   This struct specifies what data to collect, which broker to use, and
   where to send each packet upon receipt.
   """

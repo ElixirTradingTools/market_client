@@ -22,7 +22,7 @@ defmodule MarketClient.Behaviors.WsApi do
   @callback start_link(Resource.t(), keyword) :: {:ok, pid} | {:error, any}
   @callback ws_subscribe(Resource.t()) :: binary | list
   @callback ws_unsubscribe(Resource.t()) :: binary | list
-  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.ws_socket_state()
+  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.socket_state()
   @callback child_spec(Resource.t()) :: map
   @callback ws_start(Resource.t()) :: :ok
   @callback ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
