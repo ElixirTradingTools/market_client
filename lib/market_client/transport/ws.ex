@@ -1,29 +1,41 @@
 defmodule MarketClient.Transport.Ws do
-  @moduledoc """
-  This is the base layer for all WebSocket connections in MarketClient.
-  `MarketClient.Behaviors.WsApi` implements the behavior and
-  overridable functions used in every broker module which uses
-  WebSocket communication.
+  @moduledoc false
+  @doc """
+  WebSocket client to be managed by users of WsApi behavior & macro.
   """
 
   use WebSockex
-  alias MarketClient.Resource
   require Logger
 
-  @spec start_link(Resource.t()) :: {:ok, pid} | {:error, any}
-  @spec start_link(Resource.t(), keyword) :: {:ok, pid} | {:error, any}
-  @spec send_json(binary | list, pid | tuple) :: :ok | {:error, any}
-  @spec send_json(binary, WebSockex.Conn.t()) :: :ok | {:error, any}
+  @typep via_tuple :: MarketClient.via_tuple()
+  @typep url :: MarketClient.url()
+  @typep send_frame ::
+           :ok
+           | none
+           | {:error,
+              %WebSockex.FrameEncodeError{
+                __exception__: term,
+                close_code: term,
+                frame_payload: term,
+                frame_type: term,
+                reason: term
+              }
+              | %WebSockex.ConnError{__exception__: term, original: term}
+              | %WebSockex.NotConnectedError{__exception__: term, connection_state: term}
+              | %WebSockex.InvalidFrameError{__exception__: term, frame: term}}
 
-  def start_link(res = %Resource{}, opts \\ []) do
-    mod = MarketClient.get_broker_module(res, :ws)
-    url = mod.ws_url(res)
-    via = mod.ws_via_tuple(res)
+  @spec start_link(url, module, any, via_tuple) :: {:ok, pid} | {:error, any}
+  @spec start_link(url, module, any, via_tuple, keyword) :: {:ok, pid} | {:error, any}
+  @spec send_json(binary | list, pid | tuple) :: send_frame
+  @spec send_json(binary, WebSockex.Conn.t()) :: send_frame
+  @spec send_pong(via_tuple, binary | integer) :: send_frame
+  @spec close(via_tuple | pid) :: :ok
 
+  def start_link(url, module, state, via, opts \\ []) do
     if Keyword.get(opts, :debug, false) do
-      WebSockex.start_link(url, mod, res, name: via, debug: [:trace])
+      WebSockex.start_link(url, module, state, name: via, debug: [:trace])
     else
-      WebSockex.start_link(url, mod, res, name: via)
+      WebSockex.start_link(url, module, state, name: via)
     end
   end
 
@@ -65,29 +77,30 @@ defmodule MarketClient.Transport.Ws do
     WebSockex.cast(client, {:close, ""})
   end
 
-  def handle_cast({:send, {type, msg} = frame}, res) do
+  def handle_cast({:send, {type, msg} = frame}, state) do
     Logger.info("Sending #{type} frame with payload: #{msg}")
-    {:noreply, frame, res}
+    {:noreply, frame, state}
   end
 
-  def handle_cast({:close, frame}, res) do
-    Logger.info("Received close message:\n#{inspect({:close, frame})}\nresource: #{inspect(res)}")
-    {:close, res}
+  def handle_cast({:close, frame}, state) do
+    Logger.info("Received close message:\n#{inspect({:close, frame})}\nstate: #{inspect(state)}")
+    {:close, state}
   end
 
-  def handle_cast({any, frame}, res) do
-    Logger.info("Unknown message:\n#{inspect({any, frame})}\nresource: #{inspect(res)}")
-    {:noreply, frame, res}
+  def handle_cast({type, frame}, state) do
+    Logger.info("Unknown message:\n#{inspect({type, frame})}\nstate: #{inspect(state)}")
+    {:noreply, frame, state}
   end
 
-  def handle_frame({:text, msg}, state = %Resource{}) do
-    apply(state.listener, [msg])
+  def handle_frame({:text, msg}, state) do
+    apply(state.listener, [{:message, msg}])
     {:ok, state}
   end
 
-  def handle_disconnect(status, res) do
-    Logger.warn("DISCONNECTED: #{inspect(status)}")
-    {:ok, res}
+  def handle_disconnect(status, state) do
+    Logger.warn("DISCONNECTED: #{inspect(status)}\nstate: #{inspect(state)}")
+    apply(state.listener, [{:disconnect, status}])
+    {:ok, state}
   end
 
   def terminate(close_reason, state) do

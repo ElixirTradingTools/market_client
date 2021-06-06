@@ -21,8 +21,8 @@ defmodule Demo1 do
     |> MC.start()
   end
 
-  def start_coinbase do
-    :coinbase
+  def start_coinbase_pro do
+    :coinbase_pro
     |> MC.new({:crypto, :quotes, {:btc, :usd}}, @message_handler)
     |> MC.start()
   end

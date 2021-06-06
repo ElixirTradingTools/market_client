@@ -1,4 +1,8 @@
-defmodule MarketClient.Broker.Coinbase.Http do
+defmodule MarketClient.Broker.CoinbasePro.Http do
+  @moduledoc false
+  @doc """
+  HTTP client for pro.coinbase.com.
+  """
   alias MarketClient.{
     Behaviors.HttpApi,
     Resource

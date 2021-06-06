@@ -1,4 +1,7 @@
 defmodule MarketClient.Behaviors.BinanceWs do
+  @moduledoc """
+  Reusable WsApi implementation for Binance & Binance.US broker modules.
+  """
   defmacro __using__([tld]) when tld in [:us, :com] do
     alias MarketClient.Shared
 

@@ -1,5 +1,10 @@
 defmodule MarketClient.DynamicSupervisor do
+  @moduledoc """
+  Supervisor for all processes this library must run.
+  """
   use DynamicSupervisor
+
+  @spec start_link(any) :: Supervisor.on_start()
 
   def start_link(init_arg) do
     DynamicSupervisor.start_link(__MODULE__, init_arg, name: __MODULE__)

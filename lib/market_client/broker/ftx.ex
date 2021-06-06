@@ -1,4 +1,17 @@
 defmodule MarketClient.Broker.Ftx do
-  def start(res), do: __MODULE__.Ws.ws_start(res)
-  def http_start(res), do: __MODULE__.Http.http_start(res)
+  @moduledoc false
+  @doc """
+  Central logic for this broker. Responsible for directing transport
+  clients to execute the sourcing and collating of data to meet the
+  specification of the provided `MarketClient.Resource`.
+  """
+  alias MarketClient.Resource
+
+  @spec start(Resource.t()) :: :ok
+
+  def start(res = %Resource{}) do
+    __MODULE__.Ws.ws_start(res)
+  end
+
+  # HTTP client still WIP
 end

@@ -1,6 +1,7 @@
 defmodule MarketClient.Transport.Http do
-  @moduledoc """
-  All general HTTP connection logic lives here.
+  @moduledoc false
+  @doc """
+  HTTP client to be managed by users of HttpApi behavior & macro.
   """
 
   @typep http_ok :: MarketClient.http_ok()

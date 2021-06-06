@@ -1,9 +1,8 @@
 defmodule MarketClient.Behaviors.HttpApi do
   @moduledoc """
-  This is the base layer for all HTTP connections in MarketClient.
-  `MarketClient.Behaviors.HttpApi` implements the behavior and
-  overridable functions used in every broker module which uses
-  HTTP communication.
+  Reusable core implementation for HTTP client modules. Any supported
+  broker with a REST API will use `use HttpApi`. See contributor guide
+  and modules like Oanda for help and examples of how to use this.
   """
 
   alias MarketClient.Resource
@@ -47,20 +46,15 @@ defmodule MarketClient.Behaviors.HttpApi do
       @spec http_stop(Resource.t()) :: :ok
       @spec http_fetch(MarketClient.http_conn_attrs()) :: nil
       @spec http_asset_id(MarketClient.asset_id()) :: binary
-      @spec http_via_tuple(Resource.t()) :: MarketClient.via_tuple()
-
-      def http_via_tuple(res = %Resource{}) do
-        {:via, Registry, {MarketClient.Registry, MarketClient.pid_tuple(res, :http)}}
-      end
 
       def http_start(res = %Resource{}) do
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {__MODULE__, [res]})
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {Finch, name: __MODULE__})
-        res |> http_via_tuple() |> GenServer.cast(:start)
+        res |> MarketClient.get_via(:http) |> GenServer.cast(:start)
       end
 
       def http_stop(res = %Resource{}) do
-        res |> http_via_tuple() |> GenServer.cast(:stop)
+        res |> MarketClient.get_via(:http) |> GenServer.cast(:stop)
       end
 
       def http_fetch({url, method, headers, callback}) do

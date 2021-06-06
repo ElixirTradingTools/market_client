@@ -1,6 +1,8 @@
 defmodule MarketClient.Behaviors.WsApi do
   @moduledoc """
-  WsApi is a behavior and `use` macro for Broker modules
+  Reusable core implementation for WebSocket client modules. Any supported
+  broker with a WebSocket API will use `use WsApi`. See contributor guide
+  and modules like Polygon for help and examples of how to use this.
   """
 
   alias MarketClient.{
@@ -12,7 +14,6 @@ defmodule MarketClient.Behaviors.WsApi do
                       handle_ping: 2,
                       handle_connect: 2,
                       child_spec: 1,
-                      ws_via_tuple: 1,
                       ws_start: 1,
                       ws_stop: 1,
                       ws_asset_id: 1
@@ -23,7 +24,6 @@ defmodule MarketClient.Behaviors.WsApi do
   @callback ws_unsubscribe(Resource.t()) :: binary | list
   @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.ws_socket_state()
   @callback child_spec(Resource.t()) :: map
-  @callback ws_via_tuple(Resource.t()) :: MarketClient.via_tuple()
   @callback ws_start(Resource.t()) :: :ok
   @callback ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
   @callback ws_asset_id(MarketClient.asset_id()) :: binary
@@ -52,7 +52,6 @@ defmodule MarketClient.Behaviors.WsApi do
       @ohlc_types MarketClient.ohlc_types()
 
       @spec child_spec(Resource.t()) :: map
-      @spec ws_via_tuple(Resource.t()) :: MarketClient.via_tuple()
       @spec ws_start(Resource.t()) :: :ok
       @spec ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
       @spec ws_asset_id(MarketClient.asset_id()) :: binary
@@ -65,13 +64,15 @@ defmodule MarketClient.Behaviors.WsApi do
 
       def child_spec(res = %Resource{}) do
         %{
-          id: MarketClient.pid_tuple(res, :ws),
+          id: MarketClient.res_id(res, :ws),
           start: {__MODULE__, :start_link, [res]}
         }
       end
 
       def start_link(res = %Resource{}, opts \\ []) do
-        Ws.start_link(res, opts)
+        url = ws_url(res)
+        via = MarketClient.get_via(res, :ws)
+        Ws.start_link(url, __MODULE__, res, via, opts)
       end
 
       def ws_start(res = %Resource{}) do
@@ -79,15 +80,11 @@ defmodule MarketClient.Behaviors.WsApi do
         :ok
       end
 
-      def ws_stop(client = %Resource{}), do: client |> ws_via_tuple() |> Ws.close()
+      def ws_stop(client = %Resource{}), do: client |> MarketClient.get_via(:ws) |> Ws.close()
       def ws_stop(client = {:via, _, _}), do: client |> Ws.close()
       def ws_stop(client) when is_pid(client), do: client |> Ws.close()
 
       def ws_asset_id(asset_id), do: MarketClient.default_asset_id(asset_id)
-
-      def ws_via_tuple(res = %Resource{}) do
-        {:via, Registry, {MarketClient.Registry, MarketClient.pid_tuple(res, :ws)}}
-      end
 
       def handle_connect(conn, res = %Resource{}) do
         res |> ws_subscribe() |> Ws.send_json(conn)

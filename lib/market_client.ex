@@ -1,10 +1,15 @@
 defmodule MarketClient do
+  @moduledoc """
+  Unified interface for historical and real-time market data from
+  various brokers.
+  """
+
   alias MarketClient.Resource
 
   @broker_modules [
     binance: MarketClient.Broker.Binance,
     binance_us: MarketClient.Broker.BinanceUs,
-    coinbase: MarketClient.Broker.Coinbase,
+    coinbase_pro: MarketClient.Broker.CoinbasePro,
     polygon: MarketClient.Broker.Polygon,
     oanda: MarketClient.Broker.Oanda,
     ftx_us: MarketClient.Broker.FtxUs,
@@ -14,7 +19,7 @@ defmodule MarketClient do
   @broker_modules_ws [
     binance: MarketClient.Broker.Binance.Ws,
     binance_us: MarketClient.Broker.BinanceUs.Ws,
-    coinbase: MarketClient.Broker.Coinbase.Ws,
+    coinbase_pro: MarketClient.Broker.CoinbasePro.Ws,
     polygon: MarketClient.Broker.Polygon.Ws,
     oanda: MarketClient.Broker.Oanda.Ws,
     ftx_us: MarketClient.Broker.FtxUs.Ws,
@@ -24,7 +29,7 @@ defmodule MarketClient do
   @broker_modules_http [
     binance: MarketClient.Broker.Binance.Http,
     binance_us: MarketClient.Broker.BinanceUs.Http,
-    coinbase: MarketClient.Broker.Coinbase.Http,
+    coinbase_pro: MarketClient.Broker.CoinbasePro.Http,
     polygon: MarketClient.Broker.Polygon.Http,
     oanda: MarketClient.Broker.Oanda.Http,
     ftx_us: MarketClient.Broker.FtxUs.Http,
@@ -34,7 +39,7 @@ defmodule MarketClient do
   @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
 
   @type url :: binary
-  @type broker_name :: :binance | :binance_us | :coinbase | :polygon | :oanda | :ftx_us | :ftx
+  @type broker_name :: :binance | :binance_us | :coinbase_pro | :polygon | :oanda | :ftx_us | :ftx
   @type via_tuple :: {:via, module, {module, tuple}}
   @type asset_id :: {atom, atom, binary | {atom, atom}}
   @type broker_opts :: [{atom, binary}]
@@ -45,8 +50,9 @@ defmodule MarketClient do
   @type http_ok :: {:ok, Finch.Response.t()}
   @type http_error :: {:error, Mint.Types.error()}
   @type ws_socket_state :: {:ok | :close, any} | {:reply | :close, any, any}
+  @type transport_type :: :ws | :http
 
-  @spec pid_tuple(Resource.t(), :ws | :http) :: {:ws | :http, atom, any}
+  @spec res_id(Resource.t(), :ws | :http) :: {:ws | :http, atom, any}
   @spec get_broker_module(Resource.t()) :: module
   @spec new(broker_name, asset_id, function) :: Resource.t()
   @spec new(broker_name, asset_id, function, keyword) :: Resource.t()
@@ -55,6 +61,7 @@ defmodule MarketClient do
   @spec get_resource({broker_name, broker_opts}, asset_id, function, keyword) :: Resource.t()
   @spec default_asset_id(asset_id) :: binary
 
+  @spec get_via(Resource.t(), transport_type) :: via_tuple
   @spec start_link(Resource.t()) :: any
   @spec start_link(Resource.t(), keyword) :: any
   @spec ws_start(Resource.t()) :: any
@@ -98,24 +105,20 @@ defmodule MarketClient do
     ]
   end
 
-  def pid_tuple(%Resource{broker: {broker, _}, asset_id: asset_id}, transport_type) do
-    {transport_type, broker, asset_id}
-  end
-
-  def get_broker_module(%Resource{broker: {broker_name, _}}, transport \\ nil) do
-    case transport do
-      nil -> Keyword.get(@broker_modules, broker_name, nil)
-      :http -> Keyword.get(@broker_modules_http, broker_name, nil)
-      :ws -> Keyword.get(@broker_modules_ws, broker_name, nil)
-    end
-  end
-
   def new(broker, asset = {class, data_type, _}, listener, opts \\ [])
       when is_atom(class) and is_atom(data_type) and is_function(listener) do
     case broker do
       b when b in @brokers -> get_resource({broker, []}, asset, listener, opts)
       {b, o} when b in @brokers and is_list(o) -> get_resource({b, o}, asset, listener, opts)
       _ -> raise "MarketClient.new/4 received invalid first argument"
+    end
+  end
+
+  defp get_broker_module(%Resource{broker: {broker_name, _}}, transport \\ nil) do
+    case transport do
+      nil -> Keyword.get(@broker_modules, broker_name, nil)
+      :http -> Keyword.get(@broker_modules_http, broker_name, nil)
+      :ws -> Keyword.get(@broker_modules_ws, broker_name, nil)
     end
   end
 
@@ -152,7 +155,6 @@ defmodule MarketClient do
     :ws_stop,
     :ws_asset_id,
     :ws_url,
-    :ws_via_tuple,
     :ws_subscribe,
     :ws_unsubscribe
   ]
@@ -187,5 +189,13 @@ defmodule MarketClient do
       name when is_binary(name) -> name
       {a, b} -> "#{to_string(a)}/#{to_string(b)}"
     end
+  end
+
+  def get_via(res = %Resource{}, transport) when transport in [:ws, :http] do
+    {:via, Registry, {MarketClient.Registry, res_id(res, transport)}}
+  end
+
+  def res_id(%Resource{broker: {broker, _}, asset_id: asset_id}, transport_type) do
+    {transport_type, broker, asset_id}
   end
 end

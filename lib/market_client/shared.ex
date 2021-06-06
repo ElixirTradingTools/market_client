@@ -1,4 +1,8 @@
 defmodule MarketClient.Shared do
+  @moduledoc false
+  @doc """
+  Shared helper / utility functions.
+  """
   @spec is_broker_module(module) :: boolean
   @spec as_list(any) :: list
   @spec a2s_upcased(atom) :: binary

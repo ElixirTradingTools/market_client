@@ -1,4 +1,4 @@
-defmodule MarketClient.Broker.Binance do
+defmodule MarketClient.Broker.CoinbasePro do
   @moduledoc false
   @doc """
   Central logic for this broker. Responsible for directing transport

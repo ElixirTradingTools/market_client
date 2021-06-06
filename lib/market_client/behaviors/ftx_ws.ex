@@ -1,4 +1,7 @@
 defmodule MarketClient.Behaviors.FtxWs do
+  @moduledoc """
+  Reusable WsApi implementation for FTX & FTX US broker modules.
+  """
   defmacro __using__([tld]) when tld in [:us, :com] do
     alias MarketClient.Shared
 

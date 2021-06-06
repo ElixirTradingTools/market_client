@@ -1,4 +1,8 @@
 defmodule MarketClient.Broker.Polygon.Ws do
+  @moduledoc false
+  @doc """
+  WebSocket client for polygon.io.
+  """
   alias MarketClient.{
     Behaviors.WsApi,
     Resource,

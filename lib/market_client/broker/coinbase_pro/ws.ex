@@ -1,4 +1,8 @@
-defmodule MarketClient.Broker.Coinbase.Ws do
+defmodule MarketClient.Broker.CoinbasePro.Ws do
+  @moduledoc false
+  @doc """
+  WebSocket client for pro.coinbase.com.
+  """
   alias MarketClient.{
     Behaviors.WsApi,
     Resource,
@@ -8,7 +12,7 @@ defmodule MarketClient.Broker.Coinbase.Ws do
   use WsApi
 
   @impl WsApi
-  def ws_url(%Resource{broker: {:coinbase, _}}) do
+  def ws_url(%Resource{broker: {:coinbase_pro, _}}) do
     "wss://ws-feed.pro.coinbase.com"
   end
 
@@ -18,7 +22,7 @@ defmodule MarketClient.Broker.Coinbase.Ws do
   end
 
   @impl WsApi
-  def ws_subscribe(res = %Resource{broker: {:coinbase, _}}) do
+  def ws_subscribe(res = %Resource{broker: {:coinbase_pro, _}}) do
     ~s({
       "type":"subscribe",
       "channels":["#{get_channel(res.asset_id)}"],
@@ -28,7 +32,7 @@ defmodule MarketClient.Broker.Coinbase.Ws do
   end
 
   @impl WsApi
-  def ws_unsubscribe(res = %Resource{broker: {:coinbase, _}}) do
+  def ws_unsubscribe(res = %Resource{broker: {:coinbase_pro, _}}) do
     ~s({
       "type":"unsubscribe",
       "channels":["#{get_channel(res.asset_id)}"],
