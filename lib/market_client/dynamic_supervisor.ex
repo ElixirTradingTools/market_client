@@ -1,6 +1,6 @@
 defmodule MarketClient.DynamicSupervisor do
   @moduledoc """
-  Supervisor for all processes this library must run.
+  Supervisor for all processes this library will spawn.
   """
   use DynamicSupervisor
 

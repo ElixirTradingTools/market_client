@@ -1,7 +1,6 @@
 defmodule MarketClient do
   @moduledoc """
-  Unified interface for historical and real-time market data from
-  various brokers.
+  Unified interface for sourcing historical and real-time market data from various brokers.
   """
 
   alias MarketClient.Resource
@@ -198,7 +197,6 @@ defmodule MarketClient do
     :http_url,
     :http_method,
     :http_headers,
-    :http_via_tuple,
     :http_query_params
   ]
   |> Enum.each(fn func_name ->

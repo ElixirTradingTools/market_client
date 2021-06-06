@@ -23,22 +23,16 @@ defmodule MarketClient.Broker.CoinbasePro.Ws do
 
   @impl WsApi
   def ws_subscribe(res = %Resource{broker: {:coinbase_pro, _}}) do
-    ~s({
-      "type":"subscribe",
-      "channels":["#{get_channel(res.asset_id)}"],
-      "product_ids":["#{ws_asset_id(res.asset_id)}"]
-    })
-    |> Shared.remove_whitespace()
+    chan = get_channel(res.asset_id)
+    id = ws_asset_id(res.asset_id)
+    ~s({"type":"subscribe","channels":["#{chan}"],"product_ids":["#{id}"]})
   end
 
   @impl WsApi
   def ws_unsubscribe(res = %Resource{broker: {:coinbase_pro, _}}) do
-    ~s({
-      "type":"unsubscribe",
-      "channels":["#{get_channel(res.asset_id)}"],
-      "product_ids":["#{ws_asset_id(res.asset_id)}"]
-    })
-    |> Shared.remove_whitespace()
+    chan = get_channel(res.asset_id)
+    id = ws_asset_id(res.asset_id)
+    ~s({"type":"unsubscribe","channels":["#{chan}"],"product_ids":["#{id}"]})
   end
 
   def get_channel({:crypto, :quotes, _}), do: "ticker"

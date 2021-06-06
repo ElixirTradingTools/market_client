@@ -12,7 +12,7 @@ A simple universal client for various brokers and data providers. Currently incl
 The project is work-in-progress. Contributors guide is forthcoming.
 
 Features are being added on an as-needed basis. You are encouraged to use this module in your projects
-and submit merge requests for any features you'd like to add or modify. Elixir makes it very easy to use a local directory as a dependency, so clone this project and then add the following to your `mix.ex`
+and submit merge requests for any features you'd like to add or modify. Elixir makes it very easy to use a local directory as a dependency, so clone this project and then add the following to your `mix.exs`
 dependencies.
 ```
 {:market_client, path: "/your/local/path/to/this/project"}
@@ -40,7 +40,7 @@ end
 ```
 
 ## Example Usage
-```
+```elixir
 # Not that you should import MarketClient, but for brevity's sake in this example...
 import MarketClient
 
