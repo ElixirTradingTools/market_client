@@ -44,31 +44,41 @@ end
 # Not that you should import MarketClient, but for brevity's sake in this example...
 import MarketClient
 
-callback_fn = &IO.inspect/1
+new(:coinbase_pro, {:crypto, :quotes, {:eth, :usd}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
-start = DateTime.new!(Date.new!(2019, 1, 1), ~T[00:00:00])
-stop = DateTime.new!(Date.new!(2020, 1, 1), ~T[00:00:00])
-range = {start, stop}
+new(:ftx, {:crypto, :quotes, {:eth, :usd}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
-new(:coinbase_pro, {:crypto, :quotes, {:eth, :usd}, range}, callback_fn) |> start()
+new(:binance, {:crypto, :quotes, {:eth, :usdt}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
-new(:ftx, {:crypto, :quotes, {:eth, :usd}, {"", ""}}, callback_fn) |> start()
+new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
-new(:binance, {:crypto, :quotes, {:eth, :usdt}, {"", ""}}, callback_fn) |> start()
+new({:polygon, [key: "X"]}, {:stock, :quotes, "msft"})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
-new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}, {"", ""}}, callback_fn) |> start()
+new({:polygon, [key: "X"]}, {:forex, :quotes, {:gbp, :aud}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
-new({:polygon, [key: "X"]}, {:stock, :quotes, "msft", {"", ""}}, callback_fn) |> start()
-
-new({:polygon, [key: "X"]}, {:forex, :quotes, {:gbp, :aud}, {"", ""}}, callback_fn) |> start()
-
-new({:polygon, [key: "X"]}, {:crypto, :quotes, {:btc, :usd}, {"", ""}}, callback_fn) |> start()
+new({:polygon, [key: "X"]}, {:crypto, :quotes, {:btc, :usd}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, {:quotes, start: "", end: ""}, {:eur, :usd}, {"", ""}}, callback_fn)
-|> start()
+|> new({:forex, {:quotes, start: "", end: ""}, {:eur, :usd}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, :ohlc_1minute, {:eur, :usd}, {"", ""}}, callback_fn)
-|> start()
+|> new({:forex, :ohlc_1minute, {:eur, :usd}})
+|> Stream.each(&IO.puts/1)
+|> Stream.run()
 ```
