@@ -12,14 +12,14 @@ defmodule MarketClient.Behaviors.HttpApi do
                       http_request: 1,
                       http_method: 1,
                       http_start: 1,
-                      http_fetch: 1,
+                      http_fetch: 2,
                       http_url: 1
   @callback http_asset_id(MarketClient.asset_id()) :: binary
   @callback http_headers(Resource.t()) :: MarketClient.http_headers()
   @callback http_request(Resource.t()) :: any
   @callback http_method(Resource.t()) :: MarketClient.http_method()
   @callback http_start(Resource.t()) :: :ok
-  @callback http_fetch(MarketClient.http_conn_attrs()) :: nil
+  @callback http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
   @callback http_url(Resource.t()) :: binary
 
   defmacro __using__([]) do
@@ -30,6 +30,8 @@ defmodule MarketClient.Behaviors.HttpApi do
     end
 
     quote do
+      require Logger
+
       alias MarketClient.{
         Transport.Http,
         Resource
@@ -44,7 +46,7 @@ defmodule MarketClient.Behaviors.HttpApi do
       @spec get_url_method_headers(Resource.t()) :: MarketClient.http_conn_attrs()
       @spec http_start(Resource.t()) :: :ok
       @spec http_stop(Resource.t()) :: :ok
-      @spec http_fetch(MarketClient.http_conn_attrs()) :: nil
+      @spec http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
       @spec http_asset_id(MarketClient.asset_id()) :: binary
 
       def http_start(res = %Resource{}) do
@@ -57,8 +59,11 @@ defmodule MarketClient.Behaviors.HttpApi do
         res |> MarketClient.get_via(:http) |> GenServer.cast(:stop)
       end
 
-      def http_fetch({url, method, headers, callback}) do
-        Http.fetch({url, method, headers, callback}, __MODULE__)
+      def http_fetch({url, method, headers}, callback) do
+        Http.fetch({url, method, headers}, __MODULE__, fn
+          {:message, text} -> apply(callback, [text])
+          {:error, text} -> Logger.error("HTTP error: #{text}")
+        end)
       end
 
       def http_request(res = %Resource{}, type \\ :fetch) do
@@ -70,7 +75,11 @@ defmodule MarketClient.Behaviors.HttpApi do
       end
 
       def get_url_method_headers(res = %Resource{}) do
-        {http_url(res), http_method(res), http_headers(res), res.listener}
+        {http_url(res), http_method(res), http_headers(res)}
+      end
+
+      def push_to_stream(msg, %Resource{broker: {broker, _}}) do
+        MarketClient.get_via(broker, :buffer) |> GenServer.cast({:push, msg})
       end
 
       defoverridable http_request: 1,

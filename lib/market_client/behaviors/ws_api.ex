@@ -22,7 +22,7 @@ defmodule MarketClient.Behaviors.WsApi do
   @callback start_link(Resource.t(), keyword) :: {:ok, pid} | {:error, any}
   @callback ws_subscribe(Resource.t()) :: binary | list
   @callback ws_unsubscribe(Resource.t()) :: binary | list
-  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.socket_state()
+  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.ws_socket_state()
   @callback child_spec(Resource.t()) :: map
   @callback ws_start(Resource.t()) :: :ok
   @callback ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
@@ -91,13 +91,17 @@ defmodule MarketClient.Behaviors.WsApi do
         {:ok, res}
       end
 
-      def handle_frame({type, msg}, state) do
+      def handle_frame({type, msg}, res = %Resource{}) do
         case type do
-          :text -> apply(state.listener, [{:ok, msg}])
-          _ -> Logger.warn("Unknown frame: #{inspect({type, msg})}")
+          :text ->
+            module = MarketClient.get_broker_module(res, :buffer)
+            apply(module, :push, [res, msg])
+
+          _ ->
+            Logger.warn("Unknown frame: #{inspect({type, msg})}")
         end
 
-        {:ok, state}
+        {:ok, res}
       end
 
       def handle_ping(ping_frame, res = %Resource{}) do

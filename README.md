@@ -46,25 +46,29 @@ import MarketClient
 
 callback_fn = &IO.inspect/1
 
-new(:coinbase_pro, {:crypto, :quotes, {:eth, :usd}}, callback_fn) |> start()
+start = DateTime.new!(Date.new!(2019, 1, 1), ~T[00:00:00])
+stop = DateTime.new!(Date.new!(2020, 1, 1), ~T[00:00:00])
+range = {start, stop}
 
-new(:ftx, {:crypto, :quotes, {:eth, :usd}}, callback_fn) |> start()
+new(:coinbase_pro, {:crypto, :quotes, {:eth, :usd}, range}, callback_fn) |> start()
 
-new(:binance, {:crypto, :quotes, {:eth, :usdt}}, callback_fn) |> start()
+new(:ftx, {:crypto, :quotes, {:eth, :usd}, {"", ""}}, callback_fn) |> start()
 
-new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}}, callback_fn) |> start()
+new(:binance, {:crypto, :quotes, {:eth, :usdt}, {"", ""}}, callback_fn) |> start()
 
-new({:polygon, [key: "X"]}, {:stock, :quotes, "msft"}, callback_fn) |> start()
+new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}, {"", ""}}, callback_fn) |> start()
 
-new({:polygon, [key: "X"]}, {:forex, :quotes, {:gbp, :aud}}, callback_fn) |> start()
+new({:polygon, [key: "X"]}, {:stock, :quotes, "msft", {"", ""}}, callback_fn) |> start()
 
-new({:polygon, [key: "X"]}, {:crypto, :quotes, {:btc, :usd}}, callback_fn) |> start()
+new({:polygon, [key: "X"]}, {:forex, :quotes, {:gbp, :aud}, {"", ""}}, callback_fn) |> start()
+
+new({:polygon, [key: "X"]}, {:crypto, :quotes, {:btc, :usd}, {"", ""}}, callback_fn) |> start()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, :quotes, {:eur, :usd}}, callback_fn)
+|> new({:forex, {:quotes, start: "", end: ""}, {:eur, :usd}, {"", ""}}, callback_fn)
 |> start()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, :ohlc_1minute, {:eur, :usd}}, callback_fn)
+|> new({:forex, :ohlc_1minute, {:eur, :usd}, {"", ""}}, callback_fn)
 |> start()
 ```

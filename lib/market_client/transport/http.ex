@@ -6,10 +6,10 @@ defmodule MarketClient.Transport.Http do
 
   @typep http_ok :: MarketClient.http_ok()
   @typep http_error :: MarketClient.http_error()
-  @spec fetch(MarketClient.http_conn_attrs(), module) :: any
-  @spec stream(MarketClient.http_conn_attrs(), module) :: http_ok | http_error
+  @spec fetch(MarketClient.http_conn_attrs(), module, fun) :: any
+  @spec stream(MarketClient.http_conn_attrs(), module, fun) :: http_ok | http_error
 
-  def fetch({url, method, headers, callback}, module) do
+  def fetch({url, method, headers}, module, callback) do
     method
     |> Finch.build(url, headers)
     |> Finch.request(module)
@@ -19,7 +19,7 @@ defmodule MarketClient.Transport.Http do
     end
   end
 
-  def stream({url, method, headers, callback}, module) do
+  def stream({url, method, headers}, module, callback) do
     method
     |> Finch.build(url, headers)
     |> Finch.stream(module, nil, callback)

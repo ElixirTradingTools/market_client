@@ -18,8 +18,7 @@ defmodule MarketClient.Broker.Oanda.Http do
           polling_interval: nil | integer,
           resource: Resource.t(),
           method: MarketClient.http_method(),
-          headers: MarketClient.http_headers(),
-          callback: fun
+          headers: MarketClient.http_headers()
         }
   @spec get_path(MarketClient.asset_id(), any) :: binary
   @spec get_path_params(Resource.t()) :: binary
@@ -36,15 +35,14 @@ defmodule MarketClient.Broker.Oanda.Http do
 
   @impl true
   def init(res = %Resource{}) do
-    {_, method, headers, callback} = get_url_method_headers(res)
+    {_, method, headers} = get_url_method_headers(res)
 
     {:ok,
      %{
        polling_interval: nil,
        resource: res,
        method: method,
-       headers: headers,
-       callback: callback
+       headers: headers
      }}
   end
 
@@ -57,7 +55,9 @@ defmodule MarketClient.Broker.Oanda.Http do
       res
       |> Map.put(:asset_id, {:forex, :first_tick, pair})
       |> get_url_method_headers()
-      |> http_fetch()
+      |> http_fetch(fn _ ->
+        nil
+      end)
     end
 
     state
@@ -68,9 +68,12 @@ defmodule MarketClient.Broker.Oanda.Http do
   @impl true
   def handle_cast(:stop, state), do: {:stop, :normal, Map.put(state, :polling_interval, nil)}
 
-  defp poll(%{polling_interval: i, resource: r, method: m, headers: h, callback: f} = state) do
+  defp poll(%{polling_interval: i, resource: r, method: m, headers: h} = state) do
     if is_integer(i) and i > 0 do
-      {http_url(r), m, h, f} |> http_fetch()
+      http_fetch({http_url(r), m, h}, fn msg ->
+        push_to_stream(msg, r)
+      end)
+
       Process.send_after(self(), :poll, i)
     end
 

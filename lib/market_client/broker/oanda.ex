@@ -10,6 +10,9 @@ defmodule MarketClient.Broker.Oanda do
   @spec start(Resource.t()) :: :ok
 
   def start(res = %Resource{}) do
+    import DynamicSupervisor, only: [start_child: 2]
+
+    {:ok, _} = start_child(MarketClient.DynamicSupervisor, {__MODULE__.Buffer, res})
     __MODULE__.Http.http_start(res)
   end
 end
