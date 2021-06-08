@@ -10,9 +10,9 @@ defmodule MarketClient.Broker.Polygon do
   @spec start(Resource.t()) :: :ok
 
   def start(res = %Resource{}) do
-    import DynamicSupervisor, only: [start_child: 2]
+    alias DynamicSupervisor, as: DS
 
-    {:ok, _} = start_child(MarketClient.DynamicSupervisor, {__MODULE__.Buffer, res})
+    {:ok, _} = DS.start_child(MarketClient.DynamicSupervisor, {__MODULE__.Buffer, res})
     __MODULE__.Ws.ws_start(res)
   end
 end

@@ -9,7 +9,7 @@ defmodule MarketClient.Broker.CoinbasePro.Ws do
     Shared
   }
 
-  use WsApi
+  use WsApi, [:coinbase_pro]
 
   @impl WsApi
   def ws_url(%Resource{broker: {:coinbase_pro, _}}) do

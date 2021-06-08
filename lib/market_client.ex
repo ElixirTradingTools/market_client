@@ -69,12 +69,15 @@ defmodule MarketClient do
           | :ohlc_1month
 
   @spec res_id(Resource.t(), transport_type) :: {transport_type, atom, any}
+  @spec get_broker_module(broker_name, :buffer) :: module
+  @spec get_broker_module(Resource.t()) :: module
   @spec get_broker_module(Resource.t(), transport_type) :: module
   @spec new(broker_name, asset_id) :: Stream.t()
   @spec new(broker_name, asset_id, keyword) :: Stream.t()
   @spec new({broker_name, broker_opts}, asset_id) :: Stream.t()
   @spec new({broker_name, broker_opts}, asset_id, keyword) :: Stream.t()
-  @spec get_resource({broker_name, broker_opts}, asset_id, keyword) :: Stream.t()
+  @spec get_resource({broker_name, broker_opts}, asset_id, keyword) :: Resource.t()
+  @spec get_stream(Resource.t()) :: Stream.t()
   @spec default_asset_id(asset_id) :: binary
   @spec ohlc_types() :: [ohlc_type]
 
@@ -126,23 +129,42 @@ defmodule MarketClient do
   def new(broker, asset = {class, data_type, _}, opts \\ [])
       when is_atom(class) and is_atom(data_type) and is_list(opts) do
     case broker do
-      b when b in @brokers -> get_resource({broker, []}, asset, opts)
-      {b, o} when b in @brokers and is_list(o) -> get_resource({b, o}, asset, opts)
-      _ -> raise "MarketClient.new/4 received invalid first argument"
+      b when b in @brokers ->
+        {broker, []}
+        |> get_resource(asset, opts)
+        |> get_stream()
+
+      {b, o} when b in @brokers and is_list(o) ->
+        {b, o}
+        |> get_resource(asset, opts)
+        |> get_stream()
+
+      _ ->
+        raise "MarketClient.new/4 received invalid first argument"
     end
   end
 
-  def get_broker_module(%Resource{broker: {broker_name, _}}, transport \\ nil) do
+  def get_broker_module(%Resource{broker: {broker_name, _}}) do
+    Keyword.get(@broker_modules, broker_name, nil)
+  end
+
+  def get_broker_module(broker_name, :buffer) when broker_name in @brokers do
+    Keyword.get(@broker_modules_buffer, broker_name, nil)
+  end
+
+  def get_broker_module(%Resource{broker: {broker_name, _}}, transport) do
     case transport do
-      nil -> Keyword.get(@broker_modules, broker_name, nil)
       :ws -> Keyword.get(@broker_modules_ws, broker_name, nil)
       :http -> Keyword.get(@broker_modules_http, broker_name, nil)
       :buffer -> Keyword.get(@broker_modules_buffer, broker_name, nil)
     end
   end
 
-  defp get_resource(broker = {broker_name, _}, asset_id, opts) when is_list(opts) do
-    res = %Resource{broker: broker, asset_id: asset_id, options: opts}
+  def get_resource(broker, asset_id, opts) when is_list(opts) do
+    %Resource{broker: broker, asset_id: asset_id, options: opts}
+  end
+
+  def get_stream(res = %Resource{broker: {broker_name, _}}) do
     via = get_via(broker_name, :buffer)
 
     Stream.resource(

@@ -5,6 +5,7 @@ defmodule MarketClient.Behaviors.Buffer do
 
       alias MarketClient.Resource
 
+      @default_state {false, nil, :queue.new()}
       @via MarketClient.get_via(unquote(broker), :buffer)
 
       ### Client ###
@@ -21,11 +22,7 @@ defmodule MarketClient.Behaviors.Buffer do
       end
 
       def start_link(%Resource{broker: {broker, _}}) do
-        GenServer.start_link(
-          __MODULE__,
-          {false, nil, :queue.new()},
-          name: @via
-        )
+        GenServer.start_link(__MODULE__, @default_state, name: @via)
       end
 
       ### Server ###
@@ -35,7 +32,7 @@ defmodule MarketClient.Behaviors.Buffer do
 
       @impl true
       def handle_call(:drain, _, {true, _, msgs}) do
-        {:reply, {:messages, :queue.to_list(msgs)}, {false, nil, :queue.new()}}
+        {:reply, {:messages, :queue.to_list(msgs)}, @default_state}
       end
 
       @impl true
@@ -51,7 +48,7 @@ defmodule MarketClient.Behaviors.Buffer do
 
           from = {pid, _} when is_pid(pid) ->
             GenServer.reply(from, {:messages, q |> update_queue(msgs) |> :queue.to_list()})
-            {:noreply, {false, nil, :queue.new()}}
+            {:noreply, @default_state}
         end
       end
 

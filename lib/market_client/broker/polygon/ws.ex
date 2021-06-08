@@ -9,7 +9,9 @@ defmodule MarketClient.Broker.Polygon.Ws do
     Shared
   }
 
-  use WsApi
+  use WsApi, [:polygon]
+
+  @buffer_module MarketClient.get_broker_module(:polygon, :buffer)
 
   @spec ws_url(Resource.t()) :: binary
 
@@ -23,19 +25,27 @@ defmodule MarketClient.Broker.Polygon.Ws do
   end
 
   @impl WsApi
-  def handle_connect(_, res = %Resource{}), do: {:ok, res}
+  def handle_connect(_, res = %Resource{}) do
+    {:ok, res}
+  end
 
   @impl WsApi
   def handle_frame({type, msg}, res) when type in [:text, :binary] do
     cond do
-      Regex.match?(~r("message":"Connected Successfully"), msg) ->
+      msg == ~s([{"ev":"status","status":"connected","message":"Connected Successfully"}]) ->
+        Logger.info("Connection success: #{msg}")
         {:reply, {:text, ws_auth(res)}, res}
 
-      Regex.match?(~r("message":"authenticated"), msg) ->
+      msg == ~s([{"ev":"status","status":"auth_success","message":"authenticated"}]) ->
+        Logger.info("Auth success: #{msg}")
         {:reply, {:text, ws_subscribe(res)}, res}
 
+      Regex.match?(~r("ev":"status"), msg) ->
+        Logger.info("Status event: #{msg}")
+        {:ok, res}
+
       true ->
-        apply(res.listener, [{:ok, msg}])
+        apply(@buffer_module, :push, [res, msg])
         {:ok, res}
     end
   end
@@ -59,7 +69,7 @@ defmodule MarketClient.Broker.Polygon.Ws do
   @impl WsApi
   def ws_asset_id({:forex, data_type, {a, b}}) do
     case data_type do
-      :quotes -> "Q.#{Shared.a2s_upcased(a)}-#{Shared.a2s_upcased(b)}"
+      :quotes -> "C.#{Shared.a2s_upcased(a)}-#{Shared.a2s_upcased(b)}"
       :trades -> raise ":trades data type is not supported with :forex pairs"
     end
   end

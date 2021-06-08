@@ -7,7 +7,8 @@ defmodule MarketClient.Behaviors.HttpApi do
 
   alias MarketClient.Resource
 
-  @optional_callbacks http_asset_id: 1,
+  @optional_callbacks push_to_stream: 2,
+                      http_asset_id: 1,
                       http_headers: 1,
                       http_request: 1,
                       http_method: 1,
@@ -21,6 +22,7 @@ defmodule MarketClient.Behaviors.HttpApi do
   @callback http_start(Resource.t()) :: :ok
   @callback http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
   @callback http_url(Resource.t()) :: binary
+  @callback push_to_stream(binary, Resource.t()) :: no_return
 
   defmacro __using__([]) do
     alias MarketClient.Shared
@@ -48,6 +50,7 @@ defmodule MarketClient.Behaviors.HttpApi do
       @spec http_stop(Resource.t()) :: :ok
       @spec http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
       @spec http_asset_id(MarketClient.asset_id()) :: binary
+      @spec push_to_stream(binary, Resource.t()) :: no_return
 
       def http_start(res = %Resource{}) do
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {__MODULE__, [res]})

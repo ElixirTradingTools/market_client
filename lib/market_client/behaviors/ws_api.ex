@@ -19,7 +19,6 @@ defmodule MarketClient.Behaviors.WsApi do
                       ws_asset_id: 1
   @callback ws_url(Resource.t()) :: binary
   @callback start_link(Resource.t()) :: {:ok, pid} | {:error, any}
-  @callback start_link(Resource.t(), keyword) :: {:ok, pid} | {:error, any}
   @callback ws_subscribe(Resource.t()) :: binary | list
   @callback ws_unsubscribe(Resource.t()) :: binary | list
   @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.ws_socket_state()
@@ -34,7 +33,7 @@ defmodule MarketClient.Behaviors.WsApi do
               | {:close, any}
               | {:close, WebSockex.close_frame(), any}
 
-  defmacro __using__([]) do
+  defmacro __using__([broker_name]) do
     unless Shared.is_broker_module(__CALLER__.module) do
       raise "MarketClient.Behaviors.WsApi is not a public module"
     end
@@ -49,8 +48,10 @@ defmodule MarketClient.Behaviors.WsApi do
 
       @behaviour MarketClient.Behaviors.WsApi
 
+      @buffer_module MarketClient.get_via(unquote(broker_name), :buffer)
       @ohlc_types MarketClient.ohlc_types()
 
+      @spec start_link(Resource.t()) :: {:ok, pid} | {:error, any}
       @spec child_spec(Resource.t()) :: map
       @spec ws_start(Resource.t()) :: :ok
       @spec ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
@@ -69,7 +70,7 @@ defmodule MarketClient.Behaviors.WsApi do
         }
       end
 
-      def start_link(res = %Resource{}, opts \\ []) do
+      def start_link(res = %Resource{options: opts}) do
         url = ws_url(res)
         via = MarketClient.get_via(res, :ws)
         Ws.start_link(url, __MODULE__, res, via, opts)
@@ -94,8 +95,7 @@ defmodule MarketClient.Behaviors.WsApi do
       def handle_frame({type, msg}, res = %Resource{}) do
         case type do
           :text ->
-            module = MarketClient.get_broker_module(res, :buffer)
-            apply(module, :push, [res, msg])
+            apply(@buffer_module, :push, [res, msg])
 
           _ ->
             Logger.warn("Unknown frame: #{inspect({type, msg})}")
