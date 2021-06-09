@@ -8,7 +8,7 @@ defmodule MarketClient.Broker.CoinbasePro.Http do
     Resource
   }
 
-  use HttpApi
+  use HttpApi, [:coinbase_pro]
 
   def http_url(%Resource{}) do
     # products/BTC-USD/candles?start=2020-12-01T00%3A00%3A00.0Z&end=2021-01-01T00%3A00%3A00.0Z&granularity=86400

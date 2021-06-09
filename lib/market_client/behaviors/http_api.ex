@@ -22,9 +22,9 @@ defmodule MarketClient.Behaviors.HttpApi do
   @callback http_start(Resource.t()) :: :ok
   @callback http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
   @callback http_url(Resource.t()) :: binary
-  @callback push_to_stream(binary, Resource.t()) :: no_return
+  @callback push_to_stream(Resource.t(), binary) :: no_return
 
-  defmacro __using__([]) do
+  defmacro __using__([broker_name]) do
     alias MarketClient.Shared
 
     unless Shared.is_broker_module(__CALLER__.module) do
@@ -41,6 +41,8 @@ defmodule MarketClient.Behaviors.HttpApi do
 
       @behaviour MarketClient.Behaviors.HttpApi
 
+      @buffer_via MarketClient.get_via(unquote(broker_name), :buffer)
+
       @typep http_ok :: MarketClient.http_ok()
       @typep http_error :: MarketClient.http_error()
 
@@ -50,7 +52,7 @@ defmodule MarketClient.Behaviors.HttpApi do
       @spec http_stop(Resource.t()) :: :ok
       @spec http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
       @spec http_asset_id(MarketClient.asset_id()) :: binary
-      @spec push_to_stream(binary, Resource.t()) :: no_return
+      @spec push_to_stream(Resource.t(), binary) :: no_return
 
       def http_start(res = %Resource{}) do
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {__MODULE__, [res]})
@@ -81,8 +83,8 @@ defmodule MarketClient.Behaviors.HttpApi do
         {http_url(res), http_method(res), http_headers(res)}
       end
 
-      def push_to_stream(msg, %Resource{broker: {broker, _}}) do
-        MarketClient.get_via(broker, :buffer) |> GenServer.cast({:push, msg})
+      def push_to_stream(%Resource{broker: {broker, _}}, msg) do
+        GenServer.cast(@buffer_via, {:push, msg})
       end
 
       defoverridable http_request: 1,

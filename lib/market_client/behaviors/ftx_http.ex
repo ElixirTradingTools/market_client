@@ -17,7 +17,7 @@ defmodule MarketClient.Behaviors.FtxHttp do
         Shared
       }
 
-      use HttpApi
+      use HttpApi, [unquote(broker_name)]
 
       @spec http_query_params(MarketClient.Resource.t()) :: binary
 

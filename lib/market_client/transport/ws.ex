@@ -6,6 +6,7 @@ defmodule MarketClient.Transport.Ws do
 
   use WebSockex
   require Logger
+  alias MarketClient.Resource
 
   @typep via_tuple :: MarketClient.via_tuple()
   @typep url :: MarketClient.url()
@@ -92,20 +93,21 @@ defmodule MarketClient.Transport.Ws do
     {:noreply, frame, state}
   end
 
-  def handle_frame({:text, msg}, state) do
-    apply(state.listener, [{:message, msg}])
-    {:ok, state}
+  def handle_frame({:text, msg}, res = %Resource{broker: {broker_name, _}}) do
+    broker_name
+    |> MarketClient.get_broker_module(:buffer)
+    |> apply(:push, [res, msg])
+
+    {:ok, res}
   end
 
-  def handle_disconnect(status, state) do
-    Logger.warn("DISCONNECTED: #{inspect(status)}\nstate: #{inspect(state)}")
-    apply(state.listener, [{:disconnect, status}])
-    {:ok, state}
+  def handle_disconnect(status, res) do
+    Logger.warn("DISCONNECTED: #{inspect(status)}\nstate: #{inspect(res)}")
+    {:ok, res}
   end
 
-  def terminate(close_reason, state) do
+  def terminate(close_reason, res) do
     Logger.info("Connection closed: #{inspect(close_reason)}")
-    apply(state.listener, [{:close, close_reason}])
-    {:close, state}
+    {:close, res}
   end
 end

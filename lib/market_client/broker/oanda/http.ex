@@ -5,11 +5,10 @@ defmodule MarketClient.Broker.Oanda.Http do
   """
   alias MarketClient.{
     Behaviors.HttpApi,
-    Resource,
-    Shared
+    Resource
   }
 
-  use HttpApi
+  use HttpApi, [:oanda]
   use GenServer
 
   @ohlc_types MarketClient.ohlc_types()
@@ -70,10 +69,7 @@ defmodule MarketClient.Broker.Oanda.Http do
 
   defp poll(%{polling_interval: i, resource: r, method: m, headers: h} = state) do
     if is_integer(i) and i > 0 do
-      http_fetch({http_url(r), m, h}, fn msg ->
-        push_to_stream(msg, r)
-      end)
-
+      http_fetch({http_url(r), m, h}, fn msg -> push_to_stream(r, msg) end)
       Process.send_after(self(), :poll, i)
     end
 
@@ -103,7 +99,7 @@ defmodule MarketClient.Broker.Oanda.Http do
   @impl HttpApi
   def http_asset_id({:forex, _, pair}) do
     case pair do
-      {a, b} -> "#{Shared.a2s_upcased(a)}_#{Shared.a2s_upcased(b)}"
+      {a, b} -> "#{String.upcase(a)}_#{String.upcase(b)}"
       _ -> raise "received invalid currency pair: #{inspect(pair)}"
     end
   end

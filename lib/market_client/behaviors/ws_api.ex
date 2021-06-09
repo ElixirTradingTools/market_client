@@ -48,7 +48,7 @@ defmodule MarketClient.Behaviors.WsApi do
 
       @behaviour MarketClient.Behaviors.WsApi
 
-      @buffer_module MarketClient.get_via(unquote(broker_name), :buffer)
+      @buffer_module MarketClient.get_broker_module(unquote(broker_name), :buffer)
       @ohlc_types MarketClient.ohlc_types()
 
       @spec start_link(Resource.t()) :: {:ok, pid} | {:error, any}
@@ -77,7 +77,9 @@ defmodule MarketClient.Behaviors.WsApi do
       end
 
       def ws_start(res = %Resource{}) do
-        {:ok, _} = DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, child_spec(res))
+        alias DynamicSupervisor, as: DS
+
+        {:ok, _} = DS.start_child(MarketClient.DynamicSupervisor, child_spec(res))
         :ok
       end
 
@@ -94,11 +96,8 @@ defmodule MarketClient.Behaviors.WsApi do
 
       def handle_frame({type, msg}, res = %Resource{}) do
         case type do
-          :text ->
-            apply(@buffer_module, :push, [res, msg])
-
-          _ ->
-            Logger.warn("Unknown frame: #{inspect({type, msg})}")
+          :text -> @buffer_module.push(res, msg)
+          _ -> Logger.warn("Unknown frame: #{inspect({type, msg})}")
         end
 
         {:ok, res}

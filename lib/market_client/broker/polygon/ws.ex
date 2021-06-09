@@ -5,8 +5,7 @@ defmodule MarketClient.Broker.Polygon.Ws do
   """
   alias MarketClient.{
     Behaviors.WsApi,
-    Resource,
-    Shared
+    Resource
   }
 
   use WsApi, [:polygon]
@@ -31,6 +30,10 @@ defmodule MarketClient.Broker.Polygon.Ws do
 
   @impl WsApi
   def handle_frame({type, msg}, res) when type in [:text, :binary] do
+    # aid = get_asset_id(res.asset_id, "/")
+    cid = get_channel_id(res.asset_id)
+    {:ok, chan_regex} = Regex.compile(~s("ev":"#{cid}"))
+
     cond do
       msg == ~s([{"ev":"status","status":"connected","message":"Connected Successfully"}]) ->
         Logger.info("Connection success: #{msg}")
@@ -44,34 +47,23 @@ defmodule MarketClient.Broker.Polygon.Ws do
         Logger.info("Status event: #{msg}")
         {:ok, res}
 
-      true ->
+      Regex.match?(chan_regex, msg) ->
         apply(@buffer_module, :push, [res, msg])
+        {:ok, res}
+
+      true ->
+        Logger.warn("Unknown message: #{msg}, regex is: #{inspect(chan_regex)}")
         {:ok, res}
     end
   end
 
   @impl WsApi
-  def ws_asset_id({:stock, data_type, ticker}) when is_binary(ticker) do
-    case data_type do
-      :quotes -> "Q.#{String.upcase(ticker)}"
-      :trades -> "T.#{String.upcase(ticker)}"
+  def ws_asset_id(asset_id) do
+    if match?({:forex, :trades, _}, asset_id) do
+      raise ":trades data type is not supported with :forex pairs"
     end
-  end
 
-  @impl WsApi
-  def ws_asset_id({:crypto, data_type, {a, b}}) do
-    case data_type do
-      :quotes -> "XQ.#{Shared.a2s_upcased(a)}-#{Shared.a2s_upcased(b)}"
-      :trades -> "XT.#{Shared.a2s_upcased(a)}-#{Shared.a2s_upcased(b)}"
-    end
-  end
-
-  @impl WsApi
-  def ws_asset_id({:forex, data_type, {a, b}}) do
-    case data_type do
-      :quotes -> "C.#{Shared.a2s_upcased(a)}-#{Shared.a2s_upcased(b)}"
-      :trades -> raise ":trades data type is not supported with :forex pairs"
-    end
+    get_channel_id(asset_id) <> "." <> get_asset_id(asset_id, "-")
   end
 
   @impl WsApi
@@ -89,5 +81,24 @@ defmodule MarketClient.Broker.Polygon.Ws do
       nil -> raise "no entry found for :key in broker options"
       key -> ~s({"action":"auth","params":"#{key}"})
     end
+  end
+
+  defp get_channel_id(asset_id) do
+    case asset_id do
+      {:crypto, :quotes, _} -> "XQ"
+      {:crypto, :trades, _} -> "XT"
+      {:stock, :quotes, _} -> "Q"
+      {:stock, :trades, _} -> "T"
+      {:forex, :quotes, _} -> "C"
+      {:forex, :trades, _} -> raise ":trades not supported with :forex"
+    end
+  end
+
+  defp get_asset_id({:stock, _, t}, _) do
+    String.upcase(t)
+  end
+
+  defp get_asset_id({c, _, {a, b}}, sep) when is_binary(sep) and c in [:forex, :crypto] do
+    String.upcase(a) <> sep <> String.upcase(b)
   end
 end

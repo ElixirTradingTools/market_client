@@ -5,8 +5,7 @@ defmodule MarketClient.Broker.CoinbasePro.Ws do
   """
   alias MarketClient.{
     Behaviors.WsApi,
-    Resource,
-    Shared
+    Resource
   }
 
   use WsApi, [:coinbase_pro]
@@ -18,7 +17,7 @@ defmodule MarketClient.Broker.CoinbasePro.Ws do
 
   @impl WsApi
   def ws_asset_id({:crypto, _, {a, b}}) do
-    "#{Shared.a2s_upcased(a)}-#{Shared.a2s_upcased(b)}"
+    "#{String.upcase(a)}-#{String.upcase(b)}"
   end
 
   @impl WsApi

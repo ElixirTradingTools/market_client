@@ -22,12 +22,13 @@ defmodule MarketClient.Behaviors.BinanceWs do
       @spec get_start_stop_json_payload(MarketClient.Resource.t(), binary) :: binary
       @spec start(MarketClient.Resource.t()) :: :ok
 
+      @tld to_string(unquote(tld))
+
       def start(res = %MarketClient.Resource{}), do: ws_start(res)
 
       @impl WsApi
       def ws_url(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        tld = to_string(unquote(tld))
-        "wss://stream.binance.#{tld}:9443/ws/" <> get_asset_pair(res.asset_id)
+        "wss://stream.binance.#{@tld}:9443/ws/#{get_asset_pair(res.asset_id)}"
       end
 
       @impl WsApi
@@ -40,8 +41,8 @@ defmodule MarketClient.Behaviors.BinanceWs do
         get_start_stop_json_payload(res, "UNSUBSCRIBE")
       end
 
-      def get_asset_pair({:crypto, _, {a, b}}) do
-        "#{Shared.a2s_downcased(a)}#{Shared.a2s_downcased(b)}"
+      def get_asset_pair({_, _, {a, b}}) do
+        "#{String.downcase(a)}#{String.downcase(b)}"
       end
 
       defp get_start_stop_json_payload(res, method) do
