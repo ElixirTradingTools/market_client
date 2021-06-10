@@ -10,6 +10,11 @@ defmodule MarketClient.Behaviors.Buffer do
 
       ### Client ###
 
+      def start(res = %Resource{}) do
+        alias MarketClient, as: MC
+        {:ok, _} = DynamicSupervisor.start_child(MC.DynamicSupervisor, child_spec(res))
+      end
+
       def push(res = %Resource{}, msg) when is_binary(msg) do
         GenServer.cast(@via, {:push, msg})
       end

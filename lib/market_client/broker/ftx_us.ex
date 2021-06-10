@@ -5,15 +5,14 @@ defmodule MarketClient.Broker.FtxUs do
   clients to execute the sourcing and collating of data to meet the
   specification of the provided `MarketClient.Resource`.
   """
+  alias __MODULE__, as: Self
   alias MarketClient.Resource
 
-  @spec start(Resource.t()) :: :ok
+  @spec start(Resource.t()) :: no_return
 
   def start(res = %Resource{}) do
-    import DynamicSupervisor, only: [start_child: 2]
-
-    {:ok, _} = start_child(MarketClient.DynamicSupervisor, {__MODULE__.Buffer, res})
-    __MODULE__.Ws.ws_start(res)
+    res |> Self.Buffer.start()
+    res |> Self.Ws.ws_start()
   end
 
   # HTTP client still WIP

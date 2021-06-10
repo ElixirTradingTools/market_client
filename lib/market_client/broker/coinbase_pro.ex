@@ -5,14 +5,38 @@ defmodule MarketClient.Broker.CoinbasePro do
   clients to execute the sourcing and collating of data to meet the
   specification of the provided `MarketClient.Resource`.
   """
+  alias __MODULE__, as: Self
   alias MarketClient.Resource
 
-  @spec start(Resource.t()) :: :ok
+  @spec start(Resource.t()) :: no_return
+
+  @valid_data_types MarketClient.valid_data_types()
 
   def start(res = %Resource{}) do
-    import DynamicSupervisor, only: [start_child: 2]
+    res |> Self.Buffer.start()
+    res |> Self.Ws.ws_start()
+  end
 
-    {:ok, _} = start_child(MarketClient.DynamicSupervisor, {__MODULE__.Buffer, res})
-    __MODULE__.Ws.ws_start(res)
+  def validate(res = %Resource{}) do
+    case res.asset_id do
+      {:crypto, _, _} -> validate_crypto(res)
+      {:forex, _, _} -> {:error, "invalid asset class: :forex"}
+      {:stock, _, _} -> {:error, "invalid asset class: :stock"}
+      {c, _, _} -> {:error, "invalid asset class: #{inspect(c)}"}
+    end
+  end
+
+  defp validate_crypto(res) do
+    case res.asset_id do
+      {_, dt, _} when dt in @valid_data_types -> validate_currency_pair(res)
+      {_, dt, _} -> {:error, "invalid data-type: #{inspect(dt)}"}
+    end
+  end
+
+  defp validate_currency_pair(res) do
+    case res.asset_id do
+      {_, _, {a, b}} when is_binary(a) and is_binary(b) -> {:ok, res}
+      {_, _, pair} -> {:error, "invalid currency pair: #{inspect(pair)}"}
+    end
   end
 end

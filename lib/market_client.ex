@@ -6,6 +6,14 @@ defmodule MarketClient do
   alias MarketClient.Resource
   require Logger
 
+  @open_access_brokers [
+    :binance,
+    :binance_us,
+    :coinbase_pro,
+    :ftx,
+    :ftx_us
+  ]
+
   @broker_modules [
     binance: MarketClient.Broker.Binance,
     binance_us: MarketClient.Broker.BinanceUs,
@@ -30,6 +38,35 @@ defmodule MarketClient do
 
   @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
 
+  @ohlc_types [
+    :ohlc_1second,
+    :ohlc_10second,
+    :ohlc_15second,
+    :ohlc_30second,
+    :ohlc_1minute,
+    :ohlc_2minute,
+    :ohlc_3minute,
+    :ohlc_4minute,
+    :ohlc_5minute,
+    :ohlc_10minute,
+    :ohlc_15minute,
+    :ohlc_30minute,
+    :ohlc_1hour,
+    :ohlc_2hour,
+    :ohlc_3hour,
+    :ohlc_4hour,
+    :ohlc_6hour,
+    :ohlc_8hour,
+    :ohlc_12hour,
+    :ohlc_1day,
+    :ohlc_3day,
+    :ohlc_1week,
+    :ohlc_1month
+  ]
+
+  @valid_data_types [:quotes, :trades] ++ @ohlc_types
+  @valid_asset_classes [:stock, :forex, :crypto]
+
   @type url :: binary
   @type broker_name :: :binance | :binance_us | :coinbase_pro | :polygon | :oanda | :ftx_us | :ftx
   @type via_tuple :: {:via, module, {module, tuple}}
@@ -43,6 +80,7 @@ defmodule MarketClient do
   @type http_error :: {:error, Mint.Types.error()}
   @type socket_state :: {:ok | :close, any} | {:reply | :close, any, any}
   @type transport_type :: nil | :ws | :http | :buffer
+  @type broker_arg :: broker_name | {broker_name, broker_opts}
   @type ohlc_type ::
           :ohlc_1second
           | :ohlc_10second
@@ -68,14 +106,16 @@ defmodule MarketClient do
           | :ohlc_1week
           | :ohlc_1month
 
+  @spec validate(Resource.t()) :: {:ok, Resource.t()} | {:error, binary}
   @spec res_id(Resource.t(), transport_type) :: {transport_type, atom, any}
   @spec get_broker_module(Resource.t()) :: module
   @spec get_broker_module(Resource.t(), transport_type) :: module
   @spec get_broker_module(broker_name, :buffer) :: module
-  @spec new(broker_name, asset_id) :: Resource.t()
-  @spec new(broker_name, asset_id, keyword) :: Resource.t()
-  @spec new({broker_name, broker_opts}, asset_id) :: Resource.t()
-  @spec new({broker_name, broker_opts}, asset_id, keyword) :: Resource.t()
+  @spec new(broker_arg, asset_id) :: {:ok, Resource.t()} | {:error, binary}
+  @spec new(broker_arg, asset_id, keyword) :: {:ok, Resource.t()} | {:error, binary}
+  @spec new!(broker_arg, asset_id) :: Resource.t()
+  @spec new!(broker_arg, asset_id, keyword) :: Resource.t()
+  @spec stream({atom, any}) :: {atom, any} | Stream.t()
   @spec stream(Resource.t()) :: Stream.t()
   @spec default_asset_id(asset_id) :: binary
   @spec ohlc_types() :: [ohlc_type]
@@ -97,33 +137,9 @@ defmodule MarketClient do
   @spec ws_subscribe(Resource.t()) :: any
   @spec ws_unsubscribe(Resource.t()) :: any
 
-  def ohlc_types do
-    [
-      :ohlc_1second,
-      :ohlc_10second,
-      :ohlc_15second,
-      :ohlc_30second,
-      :ohlc_1minute,
-      :ohlc_2minute,
-      :ohlc_3minute,
-      :ohlc_4minute,
-      :ohlc_5minute,
-      :ohlc_10minute,
-      :ohlc_15minute,
-      :ohlc_30minute,
-      :ohlc_1hour,
-      :ohlc_2hour,
-      :ohlc_3hour,
-      :ohlc_4hour,
-      :ohlc_6hour,
-      :ohlc_8hour,
-      :ohlc_12hour,
-      :ohlc_1day,
-      :ohlc_3day,
-      :ohlc_1week,
-      :ohlc_1month
-    ]
-  end
+  def ohlc_types, do: @ohlc_types
+  def valid_data_types, do: @valid_data_types
+  def valid_asset_classes, do: @valid_asset_classes
 
   def get_broker_module(%Resource{broker: {broker_name, _}}) do
     Keyword.get(@broker_modules, broker_name, nil)
@@ -141,16 +157,41 @@ defmodule MarketClient do
   end
 
   def new(broker, asset = {class, data_type, _}, opts \\ [])
-      when is_atom(class) and is_atom(data_type) and is_list(opts) do
+      when class in @valid_asset_classes and data_type in @valid_data_types and is_list(opts) do
     case broker do
       b when b in @brokers ->
-        %Resource{broker: {broker, []}, asset_id: asset, options: opts}
+        if b in @open_access_brokers do
+          %Resource{broker: {broker, []}, asset_id: asset, options: opts}
+          |> validate()
+        else
+          {:error, "broker #{inspect(b)} requires a key for access"}
+        end
 
       {b, o} when b in @brokers and is_list(o) ->
         %Resource{broker: {b, o}, asset_id: asset, options: opts}
+        |> validate()
 
-      _ ->
-        raise "MarketClient.new/4 received invalid first argument"
+      b ->
+        {:error, "received invalid first argument: #{inspect(b)}"}
+    end
+  end
+
+  def new!(broker, asset, opts \\ []) do
+    case new(broker, asset, opts) do
+      {:ok, res} -> res
+      {:error, msg} -> raise msg
+    end
+    |> validate()
+    |> case do
+      {:ok, res} -> res
+      {:error, reason} -> raise reason
+    end
+  end
+
+  def stream({code, res}) do
+    case {code, res} do
+      {:ok, %Resource{}} -> stream(res)
+      _ -> {code, res}
     end
   end
 
@@ -176,7 +217,8 @@ defmodule MarketClient do
   [
     :start_link,
     :start,
-    :stop
+    :stop,
+    :validate
   ]
   |> Enum.each(fn func_name ->
     def unquote(func_name)(res = %Resource{}) do
