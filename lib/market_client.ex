@@ -15,6 +15,7 @@ defmodule MarketClient do
   ]
 
   @broker_modules [
+    finnhub: MarketClient.Broker.Finnhub,
     binance: MarketClient.Broker.Binance,
     binance_us: MarketClient.Broker.BinanceUs,
     coinbase_pro: MarketClient.Broker.CoinbasePro,
