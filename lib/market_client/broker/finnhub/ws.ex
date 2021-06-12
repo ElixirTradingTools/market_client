@@ -8,24 +8,30 @@ defmodule MarketClient.Broker.Finnhub.Ws do
     Resource
   }
 
-  use WsApi, [:finnhub]
+  use WsApi
 
   @impl WsApi
-  def ws_url(%Resource{broker: {:finnhub, opts}}) do
+  def ws_url(res = %Resource{broker: {:finnhub, opts}}) do
+    path =
+      case res.asset_id do
+        {_, :quotes, _} -> "api/v1/quote"
+        {_, :trades, _} -> ""
+      end
+
     case Keyword.get(opts, :key, nil) do
       nil -> raise "broker key not found"
-      key -> "wss://ws.finnhub.io?token=#{key}"
+      key -> "wss://ws.finnhub.io/#{path}?&token=#{key}"
     end
   end
 
   @impl WsApi
-  def ws_subscribe(res = %Resource{broker: {:finnhub, _}}) do
-    ~s({"type":"subscribe","symbol":"#{ws_asset_id(res.asset_id)}"})
+  def ws_subscribe(%Resource{broker: {:finnhub, _}, asset_id: aid}) do
+    ~s({"type":"subscribe","symbol":"#{ws_asset_id(aid)}"})
   end
 
   @impl WsApi
-  def ws_unsubscribe(res = %Resource{broker: {:finnhub, _}}) do
-    ~s({"type":"unsubscribe","symbol":"#{ws_asset_id(res.asset_id)}"})
+  def ws_unsubscribe(%Resource{broker: {:finnhub, _}, asset_id: aid}) do
+    ~s({"type":"unsubscribe","symbol":"#{ws_asset_id(aid)}"})
   end
 
   @impl WsApi

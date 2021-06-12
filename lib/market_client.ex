@@ -33,10 +33,6 @@ defmodule MarketClient do
                          {k, Module.concat([m, "Http"])}
                        end)
 
-  @broker_modules_buffer Enum.map(@broker_modules, fn {k, m} ->
-                           {k, Module.concat([m, "Buffer"])}
-                         end)
-
   @brokers Enum.map(@broker_modules, fn {a, _} -> a end)
 
   @ohlc_types [
@@ -70,7 +66,7 @@ defmodule MarketClient do
 
   @type url :: binary
   @type broker_name :: :binance | :binance_us | :coinbase_pro | :polygon | :oanda | :ftx_us | :ftx
-  @type via_tuple :: {:via, module, {module, tuple}}
+  @type via_tuple :: {:via, module, {module, {atom, atom, binary}}}
   @type asset_id :: {atom, atom, binary | {binary, binary}}
   @type broker_opts :: [{atom, binary}]
   @type http_headers :: [{binary, binary}]
@@ -116,13 +112,10 @@ defmodule MarketClient do
   @spec new(broker_arg, asset_id, keyword) :: {:ok, Resource.t()} | {:error, binary}
   @spec new!(broker_arg, asset_id) :: Resource.t()
   @spec new!(broker_arg, asset_id, keyword) :: Resource.t()
-  @spec stream({atom, any}) :: {atom, any} | Stream.t()
-  @spec stream(Resource.t()) :: Stream.t()
   @spec default_asset_id(asset_id) :: binary
   @spec ohlc_types() :: [ohlc_type]
 
-  @spec get_via(broker_name, :buffer) :: via_tuple
-  @spec get_via(Resource.t(), transport_type) :: via_tuple
+  @spec get_via(Resource.t(), transport_type | :buffer) :: via_tuple
   @spec start_link(Resource.t()) :: any
   @spec start_link(Resource.t(), keyword) :: any
   @spec ws_start(Resource.t()) :: any
@@ -153,8 +146,8 @@ defmodule MarketClient do
     end
   end
 
-  def get_broker_module(broker_name, :buffer) when broker_name in @brokers do
-    Keyword.get(@broker_modules_buffer, broker_name, nil)
+  def get_broker_module(_, :buffer) do
+    __MODULE__.Buffer
   end
 
   def new(broker, asset = {class, data_type, _}, opts \\ [])
@@ -187,32 +180,6 @@ defmodule MarketClient do
       {:ok, res} -> res
       {:error, reason} -> raise reason
     end
-  end
-
-  def stream({code, res}) do
-    case {code, res} do
-      {:ok, %Resource{}} -> stream(res)
-      _ -> {code, res}
-    end
-  end
-
-  def stream(res = %Resource{broker: {broker_name, _}}) do
-    via = get_via(broker_name, :buffer)
-
-    Stream.resource(
-      fn -> start(res) end,
-      fn acc ->
-        case GenServer.call(via, :drain, :infinity) do
-          {:messages, list} ->
-            {list, acc}
-
-          {:error, reason} ->
-            Logger.warn("Stream closed due to error: #{reason}")
-            {:halt, acc}
-        end
-      end,
-      fn _ -> nil end
-    )
   end
 
   [
@@ -280,15 +247,14 @@ defmodule MarketClient do
     end
   end
 
-  def get_via(broker, :buffer) when broker in @brokers do
-    {:via, Registry, {MarketClient.Registry, {broker, :buffer}}}
-  end
-
-  def get_via(res = %Resource{}, transport) when transport in [:ws, :http] do
+  def get_via(res = %Resource{}, transport) when transport in [:ws, :http, :buffer] do
     {:via, Registry, {MarketClient.Registry, res_id(res, transport)}}
   end
 
-  def res_id(%Resource{broker: {broker, _}, asset_id: asset_id}, transport) do
-    {transport, broker, asset_id}
+  def res_id(%Resource{broker: {broker_name, _}, asset_id: asset_id}, transport) do
+    case asset_id do
+      {_, _, {a, b}} -> {transport, broker_name, String.upcase("#{a}_#{b}")}
+      {_, _, ticker} -> {transport, broker_name, String.upcase(ticker)}
+    end
   end
 end

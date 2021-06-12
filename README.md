@@ -8,6 +8,7 @@ A simple universal client for various brokers and data providers. Currently incl
 * FTX US
 * Polygon
 * Oanda
+* Finnhub
 
 The project is work-in-progress. Contributors guide is forthcoming.
 
@@ -41,44 +42,59 @@ end
 
 ## Example Usage
 ```elixir
-# Not that you should import MarketClient, but for brevity's sake in this example...
-import MarketClient
+alias MarketClient, as: MC
 
-new(:coinbase_pro, {:crypto, :quotes, {:eth, :usd}})
+:coinbase_pro
+|> MC.new({:crypto, :quotes, {:eth, :usd}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new(:ftx, {:crypto, :quotes, {:eth, :usd}})
+:ftx
+|> MC.new({:crypto, :quotes, {:eth, :usd}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new(:binance, {:crypto, :quotes, {:eth, :usdt}})
+:binance
+|> MC.new({:crypto, :quotes, {:eth, :usdt}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}})
+:binance_us
+|> MC.new({:crypto, :ohlc_1minute, {:eth, :usd}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new({:polygon, [key: "X"]}, {:stock, :quotes, "msft"})
+{:polygon, [key: "X"]}
+|> MC.new({:stock, :quotes, "msft"})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new({:polygon, [key: "X"]}, {:forex, :quotes, {:gbp, :aud}})
+{:polygon, [key: "X"]}
+|> MC.new({:forex, :quotes, {:gbp, :aud}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new({:polygon, [key: "X"]}, {:crypto, :quotes, {:btc, :usd}})
+{:polygon, [key: "X"]}
+|> MC.new({:crypto, :quotes, {:btc, :usd}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, {:quotes, start: "", end: ""}, {:eur, :usd}})
+|> MC.new({:forex, {:quotes, start: "", end: ""}, {:eur, :usd}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, :ohlc_1minute, {:eur, :usd}})
+|> MC.new({:forex, :ohlc_1minute, {:eur, :usd}})
+|> MC.Stream.new()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 ```

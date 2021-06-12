@@ -17,7 +17,7 @@ defmodule MarketClient.Behaviors.BinanceWs do
         Shared
       }
 
-      use WsApi, [unquote(broker_name)]
+      use WsApi
 
       @spec get_start_stop_json_payload(MarketClient.Resource.t(), binary) :: binary
       @spec start(MarketClient.Resource.t()) :: :ok

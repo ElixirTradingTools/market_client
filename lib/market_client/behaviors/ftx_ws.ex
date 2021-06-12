@@ -17,7 +17,7 @@ defmodule MarketClient.Behaviors.FtxWs do
         Shared
       }
 
-      use WsApi, [unquote(broker_name)]
+      use WsApi
 
       @spec get_channel(atom | {atom, atom, any}) :: binary
 

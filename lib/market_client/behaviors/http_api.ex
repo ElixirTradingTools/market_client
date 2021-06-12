@@ -24,7 +24,7 @@ defmodule MarketClient.Behaviors.HttpApi do
   @callback http_url(Resource.t()) :: binary
   @callback push_to_stream(Resource.t(), binary) :: no_return
 
-  defmacro __using__([broker_name]) do
+  defmacro __using__([]) do
     alias MarketClient.Shared
 
     unless Shared.is_broker_module(__CALLER__.module) do
@@ -40,8 +40,6 @@ defmodule MarketClient.Behaviors.HttpApi do
       }
 
       @behaviour MarketClient.Behaviors.HttpApi
-
-      @buffer_via MarketClient.get_via(unquote(broker_name), :buffer)
 
       @typep http_ok :: MarketClient.http_ok()
       @typep http_error :: MarketClient.http_error()
@@ -83,8 +81,8 @@ defmodule MarketClient.Behaviors.HttpApi do
         {http_url(res), http_method(res), http_headers(res)}
       end
 
-      def push_to_stream(%Resource{broker: {broker, _}}, msg) do
-        GenServer.cast(@buffer_via, {:push, msg})
+      def push_to_stream(res = %Resource{}, msg) do
+        MarketClient.get_via(res, :buffer) |> GenServer.cast({:push, msg})
       end
 
       defoverridable http_request: 1,

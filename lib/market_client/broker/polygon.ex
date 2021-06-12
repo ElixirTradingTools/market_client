@@ -5,15 +5,19 @@ defmodule MarketClient.Broker.Polygon do
   clients to execute the sourcing and collating of data to meet the
   specification of the provided `MarketClient.Resource`.
   """
-  alias __MODULE__, as: Self
   alias MarketClient.Resource
 
   @spec start(Resource.t()) :: no_return
   @valid_data_types MarketClient.valid_data_types()
 
   def start(res = %Resource{}) do
-    res |> Self.Buffer.start()
-    res |> Self.Ws.ws_start()
+    res |> MarketClient.Buffer.start()
+    res |> __MODULE__.Ws.ws_start()
+  end
+
+  def stop(res = %Resource{}) do
+    res |> MarketClient.Buffer.stop()
+    res |> __MODULE__.Ws.ws_stop()
   end
 
   def validate(res = %Resource{}) do

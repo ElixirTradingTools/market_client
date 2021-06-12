@@ -5,7 +5,6 @@ defmodule MarketClient.Broker.Oanda do
   clients to execute the sourcing and collating of data to meet the
   specification of the provided `MarketClient.Resource`.
   """
-  alias __MODULE__, as: Self
   alias MarketClient.Resource
 
   @spec start(Resource.t()) :: no_return
@@ -13,8 +12,13 @@ defmodule MarketClient.Broker.Oanda do
   @valid_data_types MarketClient.valid_data_types()
 
   def start(res = %Resource{}) do
-    res |> Self.Buffer.start()
-    res |> Self.Http.http_start()
+    res |> MarketClient.Buffer.start()
+    res |> __MODULE__.Http.http_start()
+  end
+
+  def stop(res = %Resource{}) do
+    res |> MarketClient.Buffer.stop()
+    res |> __MODULE__.Http.http_stop()
   end
 
   def validate(res = %Resource{}) do

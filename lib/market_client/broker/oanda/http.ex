@@ -8,7 +8,7 @@ defmodule MarketClient.Broker.Oanda.Http do
     Resource
   }
 
-  use HttpApi, [:oanda]
+  use HttpApi
   use GenServer
 
   @ohlc_types MarketClient.ohlc_types()

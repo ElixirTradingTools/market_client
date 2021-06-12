@@ -33,7 +33,7 @@ defmodule MarketClient.Behaviors.WsApi do
               | {:close, any}
               | {:close, WebSockex.close_frame(), any}
 
-  defmacro __using__([broker_name]) do
+  defmacro __using__([]) do
     unless Shared.is_broker_module(__CALLER__.module) do
       raise "MarketClient.Behaviors.WsApi is not a public module"
     end
@@ -48,7 +48,7 @@ defmodule MarketClient.Behaviors.WsApi do
 
       @behaviour MarketClient.Behaviors.WsApi
 
-      @buffer_module MarketClient.get_broker_module(unquote(broker_name), :buffer)
+      # @buffer_module MarketClient.get_broker_module(unquote(broker_name), :buffer)
       @ohlc_types MarketClient.ohlc_types()
 
       @spec start_link(Resource.t()) :: {:ok, pid} | {:error, any}
@@ -95,10 +95,14 @@ defmodule MarketClient.Behaviors.WsApi do
         {:ok, res}
       end
 
-      def handle_frame({type, msg}, res = %Resource{}) do
+      def handle_frame({type, msg}, res = %Resource{broker: {broker_name, _}}) do
         case type do
-          :text -> @buffer_module.push(res, msg)
-          _ -> Logger.warn("Unknown frame: #{inspect({type, msg})}")
+          :text ->
+            buffer_module = MarketClient.get_broker_module(broker_name, :buffer)
+            apply(buffer_module, :push, [res, msg])
+
+          _ ->
+            Logger.warn("Unknown frame: #{inspect({type, msg})}")
         end
 
         {:ok, res}

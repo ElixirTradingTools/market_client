@@ -8,7 +8,7 @@ defmodule MarketClient.Broker.CoinbasePro.Ws do
     Resource
   }
 
-  use WsApi, [:coinbase_pro]
+  use WsApi
 
   @impl WsApi
   def ws_url(%Resource{broker: {:coinbase_pro, _}}) do

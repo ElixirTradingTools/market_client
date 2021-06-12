@@ -8,7 +8,7 @@ defmodule MarketClient.Broker.Polygon.Ws do
     Resource
   }
 
-  use WsApi, [:polygon]
+  use WsApi
 
   @buffer_module MarketClient.get_broker_module(:polygon, :buffer)
 
