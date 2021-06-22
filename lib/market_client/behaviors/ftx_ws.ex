@@ -19,33 +19,43 @@ defmodule MarketClient.Behaviors.FtxWs do
 
       use WsApi
 
-      @spec get_channel(atom | {atom, atom, any}) :: binary
+      @tld to_string(unquote(tld))
+      @bn unquote(broker_name)
+
+      @spec get_channel(atom) :: binary
 
       @impl WsApi
-      def ws_url(%MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        "wss://ftx.#{to_string(unquote(tld))}/ws/"
+      def ws_url_via({@bn, _}, {:crypto, assets_kwl}) do
+        url = "wss://ftx.#{@tld}/ws/"
+        via = MarketClient.get_via(@bn, assets_kwl, :ws)
+        [{url, via, assets_kwl}]
       end
 
       @impl WsApi
-      def ws_subscribe(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        chan = get_channel(res.asset_id)
-        market = ws_asset_id(res.asset_id)
-        ~s({"op":"subscribe","channel":"#{chan}","market":"#{market}"})
+      def ws_subscribe(res = %MarketClient.Resource{broker: {@bn, _}, watch: {:crypto, kwl}}) do
+        for {dt, list} <- kwl, reduce: [] do
+          msgs ->
+            chan = get_channel(dt)
+
+            for m <- ws_asset_id({:crypto, dt, list}), reduce: msgs do
+              msgs -> msgs ++ [~s/{"op":"subscribe","channel":#{chan},"market":#{m}}/]
+            end
+        end
       end
 
       @impl WsApi
-      def ws_unsubscribe(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        chan = get_channel(res.asset_id)
-        params = ws_asset_id(res.asset_id)
-        ~s({"op":"unsubscribe","channel":"#{chan}","market":"#{params}"})
+      def ws_unsubscribe(%MarketClient.Resource{broker: {@bn, _}, watch: {:crypto, kwl}}) do
+        for {dt, list} <- kwl do
+          chan = get_channel(dt)
+          params = ws_asset_id({:crypto, dt, list})
+          ~s/{"op":"unsubscribe","channel":#{chan},"market":[#{params}]}/
+        end
       end
 
-      def get_channel({:crypto, dt, _}), do: get_channel(dt)
-
-      def get_channel(dt) when is_atom(dt) do
+      def get_channel(dt) do
         case dt do
-          :quotes -> "ticker"
-          :trades -> "trades"
+          :quotes -> ~s/"ticker"/
+          :trades -> ~s/"trades"/
           dt when dt in @ohlc_types -> raise "OHLC data not supported"
         end
       end

@@ -7,7 +7,7 @@ defmodule MarketClient.Broker.Ftx do
   """
   alias MarketClient.Resource
 
-  @spec start(Resource.t()) :: no_return
+  @spec start(MarketClient.resource()) :: no_return
 
   @valid_data_types MarketClient.valid_data_types()
 
@@ -24,7 +24,7 @@ defmodule MarketClient.Broker.Ftx do
   # HTTP client still WIP
 
   def validate(res = %Resource{}) do
-    case res.asset_id do
+    case res.watch do
       {:crypto, _, _} -> validate_crypto(res)
       {:forex, _, _} -> {:error, "invalid asset class: :forex"}
       {:stock, _, _} -> {:error, "invalid asset class: :stock"}
@@ -33,14 +33,14 @@ defmodule MarketClient.Broker.Ftx do
   end
 
   defp validate_crypto(res) do
-    case res.asset_id do
+    case res.watch do
       {_, dt, _} when dt in @valid_data_types -> validate_currency_pair(res)
       {_, dt, _} -> {:error, "invalid data-type: #{inspect(dt)}"}
     end
   end
 
   defp validate_currency_pair(res) do
-    case res.asset_id do
+    case res.watch do
       {_, _, {a, b}} when is_binary(a) and is_binary(b) -> {:ok, res}
       {_, _, pair} -> {:error, "invalid currency pair: #{inspect(pair)}"}
     end

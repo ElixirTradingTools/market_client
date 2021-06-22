@@ -6,7 +6,6 @@ defmodule MarketClient.Transport.Ws do
 
   use WebSockex
   require Logger
-  alias MarketClient.Resource
 
   @typep via_tuple :: MarketClient.via_tuple()
   @typep url :: MarketClient.url()
@@ -25,23 +24,19 @@ defmodule MarketClient.Transport.Ws do
               | %WebSockex.NotConnectedError{__exception__: term, connection_state: term}
               | %WebSockex.InvalidFrameError{__exception__: term, frame: term}}
 
-  @spec start_link(url, module, any, via_tuple) :: {:ok, pid} | {:error, any}
-  @spec start_link(url, module, any, via_tuple, keyword) :: {:ok, pid} | {:error, any}
+  @spec start_link(url, module, any) :: {:ok, pid} | {:error, any}
+  @spec start_link(url, module, any, keyword) :: {:ok, pid} | {:error, any}
   @spec send_json(binary | list, pid | tuple) :: send_frame
   @spec send_json(binary, WebSockex.Conn.t()) :: send_frame
   @spec send_pong(via_tuple, binary | integer) :: send_frame
   @spec close(via_tuple | pid) :: :ok
 
-  def start_link(url, module, state, via, opts \\ []) do
-    if Keyword.get(opts, :debug, false) do
-      WebSockex.start_link(url, module, state, name: via, debug: [:trace])
-    else
-      WebSockex.start_link(url, module, state, name: via)
-    end
+  def start_link(url, module, state, opts \\ []) do
+    WebSockex.start_link(url, module, state, opts)
   end
 
   def send_json(json_msg, conn = %WebSockex.Conn{}) when is_binary(json_msg) do
-    Logger.info("send_json: #{json_msg}")
+    Logger.info("send_json: #{inspect(json_msg)}")
 
     case WebSockex.Frame.encode_frame({:text, json_msg}) do
       {:ok, frame} -> WebSockex.Conn.socket_send(conn, frame)
@@ -50,7 +45,7 @@ defmodule MarketClient.Transport.Ws do
   end
 
   def send_json(json_msg, pid) when is_binary(json_msg) and (is_pid(pid) or is_tuple(pid)) do
-    Logger.info("send_json: #{json_msg}")
+    Logger.info("send_json: #{inspect(json_msg)}")
     WebSockex.send_frame(pid, {:text, json_msg})
   end
 
@@ -83,31 +78,28 @@ defmodule MarketClient.Transport.Ws do
     {:noreply, frame, state}
   end
 
-  def handle_cast({:close, frame}, state) do
-    Logger.info("Received close message:\n#{inspect({:close, frame})}\nstate: #{inspect(state)}")
+  def handle_cast({:close, frame}, state = %{res: r}) do
+    Logger.info("Received close message:\n#{inspect({:close, frame})}\nstate: #{inspect(r)}")
     {:close, state}
   end
 
-  def handle_cast({type, frame}, state) do
-    Logger.info("Unknown message:\n#{inspect({type, frame})}\nstate: #{inspect(state)}")
+  def handle_cast({type, frame}, state = %{res: r}) do
+    Logger.info("Unknown message:\n#{inspect({type, frame})}\nstate: #{inspect(r)}")
     {:noreply, frame, state}
   end
 
-  def handle_frame({:text, msg}, res = %Resource{broker: {broker_name, _}}) do
-    broker_name
-    |> MarketClient.get_broker_module(:buffer)
-    |> apply(:push, [res, msg])
-
-    {:ok, res}
+  def handle_frame({:text, msg}, state) do
+    MarketClient.Buffer.push(state.buffer, msg)
+    {:ok, state}
   end
 
-  def handle_disconnect(status, res) do
-    Logger.warn("DISCONNECTED: #{inspect(status)}\nstate: #{inspect(res)}")
-    {:ok, res}
+  def handle_disconnect(status, state = %{res: r}) do
+    Logger.warn("DISCONNECTED: #{inspect(status)}\nstate: #{inspect(r)}")
+    {:ok, state}
   end
 
-  def terminate(close_reason, res) do
-    Logger.info("Connection closed: #{inspect(close_reason)}")
-    {:close, res}
+  def terminate(close_reason, state = %{res: r}) do
+    Logger.info("Connection closed: #{inspect(close_reason)}\nstate: #{inspect(r)}")
+    {:close, state}
   end
 end

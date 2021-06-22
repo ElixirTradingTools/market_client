@@ -19,26 +19,30 @@ defmodule MarketClient.Behaviors.FtxHttp do
 
       use HttpApi
 
-      @spec http_query_params(MarketClient.Resource.t()) :: binary
+      @spec http_query_params(MarketClient.resource()) :: binary
+
+      @bn unquote(broker_name)
 
       @impl HttpApi
-      def http_url(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
+      def http_url(res = %MarketClient.Resource{broker: {@bn, _}, watch: {:crypto, kwl}}) do
+        import Enum
+
         query = http_query_params(res)
-        asset_id = http_asset_id(res.asset_id)
+        asset_id = reduce(kwl, "", fn {_, list}, str -> str <> http_asset_id(list) end)
         "https://ftx.us/api/markets/#{asset_id}/candles?#{query}"
       end
 
       @impl HttpApi
-      def http_headers(%MarketClient.Resource{broker: {unquote(broker_name), _}}) do
+      def http_headers(%MarketClient.Resource{broker: {@bn, _}}) do
         []
       end
 
       @impl HttpApi
-      def http_method(%MarketClient.Resource{broker: {unquote(broker_name), _}}) do
+      def http_method(%MarketClient.Resource{broker: {@bn, _}}) do
         :get
       end
 
-      def http_query_params(%MarketClient.Resource{broker: {unquote(broker_name), _}}) do
+      def http_query_params(%MarketClient.Resource{broker: {@bn, _}}) do
         "resolution=60&limit=10&start_time=0&end_time=#{Shared.unix_now(:sec)}"
       end
     end

@@ -10,28 +10,39 @@ defmodule MarketClient.Behaviors.WsApi do
     Shared
   }
 
-  @optional_callbacks start_link: 1,
-                      handle_ping: 2,
+  @optional_callbacks handle_ping: 2,
                       handle_connect: 2,
-                      child_spec: 1,
+                      ws_asset_id: 2,
+                      ws_asset_id: 1,
                       ws_start: 1,
-                      ws_stop: 1,
-                      ws_asset_id: 1
-  @callback ws_url(Resource.t()) :: binary
-  @callback start_link(Resource.t()) :: {:ok, pid} | {:error, any}
-  @callback ws_subscribe(Resource.t()) :: binary | list
-  @callback ws_unsubscribe(Resource.t()) :: binary | list
-  @callback handle_ping(:ping | {:ping, binary}, Resource.t()) :: MarketClient.ws_socket_state()
-  @callback child_spec(Resource.t()) :: map
-  @callback ws_start(Resource.t()) :: no_return
-  @callback ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
-  @callback ws_asset_id(MarketClient.asset_id()) :: binary
-  @callback handle_connect(WebSockex.Conn.t(), any) :: {:ok, any}
-  @callback handle_frame(WebSockex.frame(), any) ::
-              {:ok, any}
-              | {:reply, WebSockex.frame(), any}
-              | {:close, any}
-              | {:close, WebSockex.close_frame(), any}
+                      ws_stop: 1
+
+  @typep resource :: MarketClient.resource()
+  @typep via_tuple :: MarketClient.via_tuple()
+  @typep broker_opts :: MarketClient.broker_opts()
+  @typep assets_list :: MarketClient.equities_list() | MarketClient.currencies_list()
+  @typep asset_class :: MarketClient.asset_class()
+  @typep valid_data_type :: MarketClient.valid_data_type()
+  @typep frame :: WebSockex.frame()
+  @typep state :: %{res: resource, buffer: via_tuple}
+
+  @callback ws_url_via({atom, broker_opts}, {asset_class, assets_list}) ::
+              list({binary, via_tuple, any})
+  @callback ws_subscribe(resource) :: binary | list(binary)
+  @callback ws_unsubscribe(resource) :: binary | list(binary)
+  @callback handle_ping(:ping | {:ping, binary}, state) :: {:reply, frame, state}
+  @callback ws_start(resource) :: list(MarketClient.DynamicSupervisor.on_start_child())
+  @callback ws_stop(pid | resource | MarketClient.via_tuple()) ::
+              :ok | {:error, any}
+  @callback ws_asset_id({asset_class, valid_data_type, assets_list}) :: binary
+  @callback ws_asset_id({asset_class, valid_data_type, assets_list}, :list | :string) ::
+              list | binary
+  @callback handle_connect(WebSockex.Conn.t(), state) :: {:ok, state}
+  @callback handle_frame(frame, state) ::
+              {:ok, state}
+              | {:reply, frame, state}
+              | {:close, state}
+              | {:close, WebSockex.close_frame(), state}
 
   defmacro __using__([]) do
     unless Shared.is_broker_module(__CALLER__.module) do
@@ -43,83 +54,102 @@ defmodule MarketClient.Behaviors.WsApi do
 
       alias MarketClient.{
         Transport.Ws,
-        Resource
+        Resource,
+        Buffer
       }
 
       @behaviour MarketClient.Behaviors.WsApi
 
-      # @buffer_module MarketClient.get_broker_module(unquote(broker_name), :buffer)
       @ohlc_types MarketClient.ohlc_types()
 
-      @spec start_link(Resource.t()) :: {:ok, pid} | {:error, any}
-      @spec child_spec(Resource.t()) :: map
-      @spec ws_start(Resource.t()) :: no_return
-      @spec ws_stop(pid | Resource.t() | MarketClient.via_tuple()) :: :ok | {:error, any}
-      @spec ws_asset_id(MarketClient.asset_id()) :: binary
-      @spec handle_connect(WebSockex.Conn.t(), any) :: {:ok, any}
-      @spec handle_frame(WebSockex.frame(), any) ::
-              {:ok, any}
-              | {:reply, WebSockex.frame(), any}
-              | {:close, any}
-              | {:close, WebSockex.close_frame(), any}
+      @typep assets_list :: MarketClient.equities_list() | MarketClient.currencies_list()
+      @typep valid_data_type :: MarketClient.valid_data_type()
+      @typep asset_class :: MarketClient.asset_class()
+      @typep via_tuple :: MarketClient.via_tuple()
+      @typep resource :: MarketClient.resource()
+      @typep frame :: WebSockex.frame()
+      @typep state :: %{res: resource, buffer: via_tuple}
 
-      def start_link(res = %Resource{options: opts}) do
-        url = ws_url(res)
-        via = MarketClient.get_via(res, :ws)
-        Ws.start_link(url, __MODULE__, res, via, opts)
+      @spec ws_start(resource) :: list(MarketClient.DynamicSupervisor.on_start_child())
+      @spec ws_stop(pid | resource | MarketClient.via_tuple()) ::
+              :ok | {:error, any}
+      @spec ws_asset_id({asset_class, valid_data_type, assets_list}) :: binary
+      @spec ws_asset_id({asset_class, valid_data_type, assets_list}, :list | :string) :: binary
+      @spec handle_connect(WebSockex.Conn.t(), state) :: {:ok, state}
+      @spec handle_frame(frame, state) ::
+              {:ok, state}
+              | {:reply, frame, state}
+              | {:close, state}
+              | {:close, WebSockex.close_frame(), state}
+
+      def ws_start(res = %Resource{broker: broker = {bn, _}, watch: watch = {class, _}}) do
+        for {url, ws_via, assets_kwl} <- ws_url_via(broker, watch) do
+          {:via, _, {_, res_id}} = ws_via
+
+          resource = Map.put(res, :watch, {class, assets_kwl})
+
+          MarketClient.DynamicSupervisor.start_child(%{
+            id: res_id,
+            start: {__MODULE__, :start_link, [url, resource, ws_via]}
+          })
+        end
       end
 
-      def ws_start(res = %Resource{}) do
-        MarketClient.DynamicSupervisor.start_child(child_spec(res))
-      end
+      def start_link(url, res = %Resource{options: opts}, ws_via) do
+        state = %{res: res, buffer: Buffer.get_via(res)}
 
-      def child_spec(res = %Resource{}) do
-        %{
-          id: MarketClient.res_id(res, :ws),
-          start: {__MODULE__, :start_link, [res]}
-        }
+        opts =
+          if Keyword.get(opts, :debug, false) do
+            [name: ws_via, debug: [:trace]]
+          else
+            [name: ws_via]
+          end
+
+        Ws.start_link(url, __MODULE__, state, opts)
       end
 
       def ws_stop(client) do
         case client do
-          %Resource{} -> client |> MarketClient.get_via(:ws) |> Ws.close()
-          {:via, _, _} -> client |> Ws.close()
-          client when is_pid(client) -> client |> Ws.close()
+          %Resource{broker: {bn, _}, watch: {_, kwl}} -> MarketClient.get_via(bn, kwl, :ws)
+          client when is_pid(client) -> client
+          {:via, _, _} -> client
         end
+        |> Ws.close()
       end
 
-      def ws_asset_id(asset_id), do: MarketClient.default_asset_id(asset_id)
+      def ws_asset_id(asset_tuple, type \\ :list) do
+        MarketClient.default_asset_id(asset_tuple, type)
+      end
 
-      def handle_connect(conn, res = %Resource{}) do
+      def handle_connect(conn, state) do
+        Logger.info("handle_connect")
+
+        %{res: res} = state
         res |> ws_subscribe() |> Ws.send_json(conn)
-        {:ok, res}
+        {:ok, state}
       end
 
-      def handle_frame({type, msg}, res = %Resource{broker: {broker_name, _}}) do
+      def handle_frame({type, msg}, state = %{buffer: via}) do
         case type do
-          :text ->
-            buffer_module = MarketClient.get_broker_module(broker_name, :buffer)
-            apply(buffer_module, :push, [res, msg])
-
-          _ ->
-            Logger.warn("Unknown frame: #{inspect({type, msg})}")
+          :text -> MarketClient.Buffer.push(via, msg)
+          _ -> Logger.warn("Unknown frame: #{inspect({type, msg})}")
         end
 
-        {:ok, res}
+        {:ok, state}
       end
 
-      def handle_ping(ping_frame, res = %Resource{}) do
+      def handle_ping(ping_frame, state = %{res: res}) do
         case ping_frame do
-          {:ping, id} -> {:reply, {:pong, id}, res}
-          :ping -> {:reply, {:pong, ""}, res}
+          {:ping, id} -> {:reply, {:pong, id}, state}
+          :ping -> {:reply, {:pong, ""}, state}
         end
       end
 
       defoverridable handle_connect: 2,
                      handle_frame: 2,
-                     ws_asset_id: 1,
                      handle_ping: 2,
-                     start_link: 1,
+                     ws_asset_id: 2,
+                     ws_asset_id: 1,
                      ws_start: 1,
                      ws_stop: 1
     end

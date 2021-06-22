@@ -7,22 +7,26 @@ defmodule MarketClient.Behaviors.HttpApi do
 
   alias MarketClient.Resource
 
+  @typep currencies_list :: MarketClient.currencies_list()
+
   @optional_callbacks push_to_stream: 2,
                       http_asset_id: 1,
                       http_headers: 1,
+                      http_request: 2,
                       http_request: 1,
                       http_method: 1,
                       http_start: 1,
                       http_fetch: 2,
                       http_url: 1
-  @callback http_asset_id(MarketClient.asset_id()) :: binary
-  @callback http_headers(Resource.t()) :: MarketClient.http_headers()
-  @callback http_request(Resource.t()) :: any
-  @callback http_method(Resource.t()) :: MarketClient.http_method()
-  @callback http_start(Resource.t()) :: :ok
+  @callback http_asset_id({:forex, currencies_list}) :: binary
+  @callback http_headers(MarketClient.resource()) :: MarketClient.http_headers()
+  @callback http_request(MarketClient.resource()) :: any
+  @callback http_request(MarketClient.resource(), :fetch | :stream) :: any
+  @callback http_method(MarketClient.resource()) :: MarketClient.http_method()
+  @callback http_start(MarketClient.resource()) :: :ok
   @callback http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
-  @callback http_url(Resource.t()) :: binary
-  @callback push_to_stream(Resource.t(), binary) :: no_return
+  @callback http_url(MarketClient.resource()) :: binary
+  @callback push_to_stream(MarketClient.via_tuple(), binary) :: no_return
 
   defmacro __using__([]) do
     alias MarketClient.Shared
@@ -43,23 +47,31 @@ defmodule MarketClient.Behaviors.HttpApi do
 
       @typep http_ok :: MarketClient.http_ok()
       @typep http_error :: MarketClient.http_error()
+      @typep data_type :: MarketClient.valid_data_type()
+      @typep currencies_list :: MarketClient.currencies_list()
 
-      @spec http_request(Resource.t(), :fetch | :stream) :: http_ok | http_error
-      @spec get_url_method_headers(Resource.t()) :: MarketClient.http_conn_attrs()
-      @spec http_start(Resource.t()) :: :ok
-      @spec http_stop(Resource.t()) :: :ok
+      @spec http_request(MarketClient.resource()) :: http_ok | http_error
+      @spec http_request(MarketClient.resource(), :fetch | :stream) :: http_ok | http_error
+      @spec get_url_method_headers(MarketClient.resource()) :: MarketClient.http_conn_attrs()
+      @spec http_start(MarketClient.resource()) :: :ok
+      @spec http_stop(MarketClient.resource()) :: :ok
       @spec http_fetch(MarketClient.http_conn_attrs(), fun) :: nil
-      @spec http_asset_id(MarketClient.asset_id()) :: binary
-      @spec push_to_stream(Resource.t(), binary) :: no_return
+      @spec http_asset_id({data_type, currencies_list}) :: binary
+      @spec push_to_stream(MarketClient.via_tuple(), binary) :: no_return
 
-      def http_start(res = %Resource{}) do
+      def http_start(res = %Resource{broker: {broker_name, _}, watch: assets}) do
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {__MODULE__, [res]})
         DynamicSupervisor.start_child(MarketClient.DynamicSupervisor, {Finch, name: __MODULE__})
-        res |> MarketClient.get_via(:http) |> GenServer.cast(:start)
+
+        broker_name
+        |> MarketClient.get_via(assets, :http)
+        |> GenServer.cast(:start)
       end
 
-      def http_stop(res = %Resource{}) do
-        res |> MarketClient.get_via(:http) |> GenServer.cast(:stop)
+      def http_stop(res = %Resource{broker: {broker_name, _}, watch: assets}) do
+        broker_name
+        |> MarketClient.get_via(assets, :http)
+        |> GenServer.cast(:stop)
       end
 
       def http_fetch({url, method, headers}, callback) do
@@ -73,20 +85,21 @@ defmodule MarketClient.Behaviors.HttpApi do
         apply(Http, type, [get_url_method_headers(res)])
       end
 
-      def http_asset_id(asset_id) do
-        MarketClient.default_asset_id(asset_id)
+      def http_asset_id({dt, list}) do
+        MarketClient.default_asset_id({dt, list})
       end
 
       def get_url_method_headers(res = %Resource{}) do
         {http_url(res), http_method(res), http_headers(res)}
       end
 
-      def push_to_stream(res = %Resource{}, msg) do
-        MarketClient.get_via(res, :buffer) |> GenServer.cast({:push, msg})
+      def push_to_stream(buffer_via, msg) do
+        MarketClient.Buffer.push(buffer_via, msg)
       end
 
-      defoverridable http_request: 1,
-                     http_asset_id: 1
+      defoverridable http_asset_id: 1,
+                     http_request: 2,
+                     http_request: 1
     end
   end
 end

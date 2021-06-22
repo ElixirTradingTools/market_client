@@ -12,6 +12,8 @@ defmodule MarketClient.Behaviors.BinanceWs do
     broker_name = if(tld == :us, do: :binance_us, else: :binance)
 
     quote do
+      import String, only: [downcase: 1]
+
       alias MarketClient.{
         Behaviors.WsApi,
         Shared
@@ -19,53 +21,90 @@ defmodule MarketClient.Behaviors.BinanceWs do
 
       use WsApi
 
-      @spec get_start_stop_json_payload(MarketClient.Resource.t(), binary) :: binary
-      @spec start(MarketClient.Resource.t()) :: :ok
+      @typep currencies_list :: MarketClient.currencies_list()
+
+      @spec ws_start(MarketClient.Resource.t()) ::
+              list(MarketClient.DynamicSupervisor.on_start_child())
+      @spec get_assets_url_path(keyword(currencies_list)) :: binary
+      @spec get_assets_json_param({:crypto, keyword({binary, binary})}) :: binary
 
       @tld to_string(unquote(tld))
-
-      def start(res = %MarketClient.Resource{}), do: ws_start(res)
-
-      @impl WsApi
-      def ws_url(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        "wss://stream.binance.#{@tld}:9443/ws/#{get_asset_pair(res.asset_id)}"
-      end
+      @bn unquote(broker_name)
 
       @impl WsApi
-      def ws_subscribe(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        get_start_stop_json_payload(res, "SUBSCRIBE")
+      def ws_url_via({@bn, _}, {:crypto, assets_kwl}) do
+        url = "wss://stream.binance.#{@tld}:9443" <> get_assets_url_path(assets_kwl)
+        via = MarketClient.get_via(@bn, assets_kwl, :ws)
+        [{url, via, assets_kwl}]
       end
 
       @impl WsApi
-      def ws_unsubscribe(res = %MarketClient.Resource{broker: {unquote(broker_name), _}}) do
-        get_start_stop_json_payload(res, "UNSUBSCRIBE")
+      def ws_subscribe(res = %MarketClient.Resource{broker: {@bn, _}}) do
+        sub_unsub_msg(res, "SUBSCRIBE")
       end
 
-      def get_asset_pair({_, _, {a, b}}) do
-        "#{String.downcase(a)}#{String.downcase(b)}"
+      @impl WsApi
+      def ws_unsubscribe(res = %MarketClient.Resource{broker: {@bn, _}}) do
+        sub_unsub_msg(res, "UNSUBSCRIBE")
       end
 
-      defp get_start_stop_json_payload(res, method) do
-        params = get_asset_pair(res.asset_id) <> get_channel(res.asset_id)
-        ~s({"id":1,"method":"#{method}","params":["#{params}"]})
+      defp get_assets_url_path([{dt, [{a, b}]}]) do
+        "/ws/" <> get_pairs_string([{a, b}], get_channel(dt))
       end
 
-      def get_channel({:crypto, :quotes, _}), do: "@bookTicker"
-      def get_channel({:crypto, :ohlc_1minute, _}), do: "@kline_1m"
-      def get_channel({:crypto, :ohlc_3minute, _}), do: "@kline_3m"
-      def get_channel({:crypto, :ohlc_5minute, _}), do: "@kline_5m"
-      def get_channel({:crypto, :ohlc_15minute, _}), do: "@kline_15m"
-      def get_channel({:crypto, :ohlc_30minute, _}), do: "@kline_30m"
-      def get_channel({:crypto, :ohlc_1hour, _}), do: "@kline_1h"
-      def get_channel({:crypto, :ohlc_2hour, _}), do: "@kline_2h"
-      def get_channel({:crypto, :ohlc_4hour, _}), do: "@kline_4h"
-      def get_channel({:crypto, :ohlc_6hour, _}), do: "@kline_6h"
-      def get_channel({:crypto, :ohlc_8hour, _}), do: "@kline_8h"
-      def get_channel({:crypto, :ohlc_12hour, _}), do: "@kline_12h"
-      def get_channel({:crypto, :ohlc_1day, _}), do: "@kline_1d"
-      def get_channel({:crypto, :ohlc_3day, _}), do: "@kline_3d"
-      def get_channel({:crypto, :ohlc_1week, _}), do: "@kline_1w"
-      def get_channel({:crypto, :ohlc_1month, _}), do: "@kline_1M"
+      defp get_assets_url_path(assets_kwl) when is_list(assets_kwl) do
+        for {dt, pairs} <- assets_kwl, reduce: "/stream?streams=" do
+          str ->
+            channel = get_channel(dt)
+            str <> Enum.join(get_pairs_string(pairs, channel), "/")
+        end
+      end
+
+      defp get_pairs_string(pairs, channel) do
+        for {a, b} <- pairs, do: downcase(a <> b) <> channel
+      end
+
+      def get_assets_json_param({:crypto, assets_list}) do
+        assets_list
+        |> Enum.map(fn {a, b} -> downcase("#{a}/#{b}") end)
+        |> Enum.join(",")
+      end
+
+      defp sub_unsub_msg(res = %MarketClient.Resource{watch: {:crypto, assets}}, action) do
+        for assets_entry <- assets do
+          case assets_entry do
+            {dt, [{a, b}]} ->
+              params = ~s/"#{downcase(a <> b) <> get_channel(dt)}"/
+              ~s/{"id":1,"method":"#{action}","params":[#{params}]}/
+
+            {dt, pairs} when length(pairs) > 1 ->
+              c = get_channel(dt)
+              params = for({a, b} <- pairs, do: ~s/"#{downcase(a <> b) <> c}"/) |> Enum.join(",")
+              ~s/{"id":1,"method":"#{action}","params":[#{params}]}/
+          end
+        end
+      end
+
+      def get_channel(dt) do
+        case dt do
+          :quotes -> "@bookTicker"
+          :ohlc_1minute -> "@kline_1m"
+          :ohlc_3minute -> "@kline_3m"
+          :ohlc_5minute -> "@kline_5m"
+          :ohlc_15minute -> "@kline_15m"
+          :ohlc_30minute -> "@kline_30m"
+          :ohlc_1hour -> "@kline_1h"
+          :ohlc_2hour -> "@kline_2h"
+          :ohlc_4hour -> "@kline_4h"
+          :ohlc_6hour -> "@kline_6h"
+          :ohlc_8hour -> "@kline_8h"
+          :ohlc_12hour -> "@kline_12h"
+          :ohlc_1day -> "@kline_1d"
+          :ohlc_3day -> "@kline_3d"
+          :ohlc_1week -> "@kline_1w"
+          :ohlc_1month -> "@kline_1M"
+        end
+      end
     end
   end
 end

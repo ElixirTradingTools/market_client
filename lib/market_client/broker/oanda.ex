@@ -7,7 +7,8 @@ defmodule MarketClient.Broker.Oanda do
   """
   alias MarketClient.Resource
 
-  @spec start(Resource.t()) :: no_return
+  @spec start(MarketClient.resource()) :: any
+  @spec stop(MarketClient.resource()) :: any
 
   @valid_data_types MarketClient.valid_data_types()
 
@@ -22,7 +23,7 @@ defmodule MarketClient.Broker.Oanda do
   end
 
   def validate(res = %Resource{}) do
-    case res.asset_id do
+    case res.watch do
       {:forex, _, _} -> validate_forex(res)
       {:crypto, _, _} -> {:error, "invalid asset class: :crypto"}
       {:stock, _, _} -> {:error, "invalid asset class: :stock"}
@@ -31,7 +32,7 @@ defmodule MarketClient.Broker.Oanda do
   end
 
   defp validate_forex(res) do
-    case res.asset_id do
+    case res.watch do
       {_, :trades, _} -> {:error, ":trades data-type not supported"}
       {_, dt, _} when dt in @valid_data_types -> validate_currency_pair(res)
       {_, dt, _} -> {:error, "invalid data-type: #{inspect(dt)}"}
@@ -39,7 +40,7 @@ defmodule MarketClient.Broker.Oanda do
   end
 
   defp validate_currency_pair(res) do
-    case res.asset_id do
+    case res.watch do
       {_, _, {a, b}} when is_binary(a) and is_binary(b) -> {:ok, res}
       {_, _, pair} -> {:error, "invalid currency pair: #{inspect(pair)}"}
     end

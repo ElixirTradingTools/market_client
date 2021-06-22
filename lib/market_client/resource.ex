@@ -5,9 +5,12 @@ defmodule MarketClient.Resource do
   """
   use TypedStruct
 
+  @type pair :: {binary, binary}
+  @type ticker :: binary
+
   typedstruct do
     field :broker, {atom, keyword}, enforce: true
-    field :asset_id, {atom, atom, binary | {binary, binary}}, enforce: true
+    field :watch, keyword(pair) | keyword(ticker), enforce: true
     field :options, keyword
   end
 end

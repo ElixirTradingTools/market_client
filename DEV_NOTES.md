@@ -5,6 +5,14 @@ curl 'https://ftx.us/api/markets/ETH/USD/candles?resolution=60&start_time=162120
 curl 'https://ftx.us/api/markets/eth/usd/candles?resolution=60&limit=50&start_time=0&end_time=1621200227'
 ```
 
+# Finnhub cURL Example
+
+```
+curl 'https://finnhub.io/api/v1/forex/symbol?exchange=oanda&token=c30u5m2ad3idae6u4540'
+```
+
+# Idea for Time Range Input
+
 start = DateTime.new!(Date.new!(2019, 1, 1), ~T[00:00:00])
 stop = DateTime.new!(Date.new!(2020, 1, 1), ~T[00:00:00])
 range = {start, stop}

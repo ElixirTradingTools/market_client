@@ -7,7 +7,7 @@ defmodule MarketClient.Stream do
   require Logger
 
   @spec new({atom, any}) :: {atom, any} | Stream.t()
-  @spec new(Resource.t()) :: Stream.t()
+  @spec new(MarketClient.resource()) :: Stream.t()
 
   def new({code, res}) do
     case {code, res} do
@@ -17,14 +17,14 @@ defmodule MarketClient.Stream do
   end
 
   def new(res = %Resource{}) do
-    buffer_via = MarketClient.get_via(res, :buffer)
+    buffer_via = MarketClient.Buffer.get_via(res)
 
     Stream.resource(
       fn ->
         res |> MarketClient.start()
       end,
       fn acc ->
-        case buffer_via |> GenServer.call(:drain, :infinity) do
+        case GenServer.call(buffer_via, :drain, :infinity) do
           {:messages, list} ->
             {list, acc}
 
