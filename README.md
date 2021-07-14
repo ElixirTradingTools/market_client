@@ -12,7 +12,8 @@ A simple universal client for various brokers and data providers. Currently incl
 The project is work-in-progress. Contributors guide is forthcoming.
 
 Features are being added on an as-needed basis. You are encouraged to use this module in your projects
-and submit merge requests for any features you'd like to add or modify. Elixir makes it very easy to use a local directory as a dependency, so clone this project and then add the following to your `mix.exs`
+and submit merge requests for any features you'd like to add or modify. Elixir makes it very easy to use
+a local directory as a dependency, so clone this project and then add the following to your `mix.exs`
 dependencies.
 ```
 {:market_client, path: "/your/local/path/to/this/project"}
@@ -41,44 +42,55 @@ end
 
 ## Example Usage
 ```elixir
-# Not that you should import MarketClient, but for brevity's sake in this example...
-import MarketClient
+# The following snippets work if you have supervision setup. Please visit the
+# included demo project to see a working example.
 
-new(:coinbase_pro, {:crypto, :quotes, {:eth, :usd}})
+alias MarketClient, as: MC
+
+MC.new(:coinbase_pro, {:crypto, :quotes, {"eth", "usd"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new(:ftx, {:crypto, :quotes, {:eth, :usd}})
+MC.new(:ftx, {:crypto, :quotes, {"eth", "usd"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new(:binance, {:crypto, :quotes, {:eth, :usdt}})
+MC.new(:binance, {:crypto, :quotes, {"eth", "usdt"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new(:binance_us, {:crypto, :ohlc_1minute, {:eth, :usd}})
+MC.new(:binance_us, {:crypto, :ohlc_1minute, {"eth", "usd"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new({:polygon, [key: "X"]}, {:stock, :quotes, "msft"})
+MC.new({:polygon, [key: "X"]}, {:stock, :quotes, "msft"})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new({:polygon, [key: "X"]}, {:forex, :quotes, {:gbp, :aud}})
+MC.new({:polygon, [key: "X"]}, {:forex, :quotes, {"gbp", "aud"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
-new({:polygon, [key: "X"]}, {:crypto, :quotes, {:btc, :usd}})
+MC.new({:polygon, [key: "X"]}, {:crypto, :quotes, {"btc", "usd"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, {:quotes, start: "", end: ""}, {:eur, :usd}})
+|> MC.new({:forex, {:quotes, start: "", end: ""}, {"eur", "usd"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 
 {:oanda, [key: "X", account_id: "X"]}
-|> new({:forex, :ohlc_1minute, {:eur, :usd}})
+|> MC.new({:forex, :ohlc_1minute, {"eur", "usd"}})
+|> MC.stream()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
 ```
