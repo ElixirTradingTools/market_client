@@ -5,6 +5,11 @@ curl 'https://ftx.us/api/markets/ETH/USD/candles?resolution=60&start_time=162120
 curl 'https://ftx.us/api/markets/eth/usd/candles?resolution=60&limit=50&start_time=0&end_time=1621200227'
 ```
 
+# Coinbase Candles
+```
+https://api.pro.coinbase.com/products/btc-usd/candles?start=2020-12-01T00%3A00%3A00.0Z&end=2021-01-01T00%3A00%3A00.0Z&granularity=86400
+```
+
 # Finnhub cURL Example
 
 ```
