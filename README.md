@@ -42,6 +42,9 @@ end
 
 ## Example Usage
 ```elixir
+# Assuming you've added the MarketClient Registry and DynamicSupervisor
+# to your supervision tree, you can run the following snippets.
+
 alias MarketClient, as: MC
 
 :coinbase_pro
